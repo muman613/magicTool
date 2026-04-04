@@ -1,0 +1,78 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 16,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "host-debug",
+      "displayName": "Host Debug",
+      "description": "Configure only the Qt5 host library for IDE work",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/host-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "OFF",
+        "DEBUG_TOOL_BUILD_HOST": "ON",
+        "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "host-release",
+      "displayName": "Host Release",
+      "description": "Configure only the Qt5 host library in release mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/host-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "OFF",
+        "DEBUG_TOOL_BUILD_HOST": "ON",
+        "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "all-release",
+      "displayName": "All Release",
+      "description": "Configure host and firmware together using separate sub-builds",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/all-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "ON"
+      }
+    },
+    {
+      "name": "firmware-release",
+      "displayName": "Firmware Release",
+      "description": "Configure only the Pico firmware",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/firmware-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "host-debug",
+      "configurePreset": "host-debug"
+    },
+    {
+      "name": "host-release",
+      "configurePreset": "host-release"
+    },
+    {
+      "name": "all-release",
+      "configurePreset": "all-release"
+    },
+    {
+      "name": "firmware-release",
+      "configurePreset": "firmware-release"
+    }
+  ]
+}

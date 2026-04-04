@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "cmake.sourceDirectory": "${workspaceFolder}/host",
+    "cmake.buildDirectory": "${workspaceFolder}/build/vscode-host",
+    "cmake.configureOnOpen": true,
+    "cmake.configureSettings": {
+      "CMAKE_BUILD_TYPE": "Debug",
+      "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON"
+    }
+  }
+}

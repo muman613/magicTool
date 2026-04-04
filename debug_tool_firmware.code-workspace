@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "cmake.sourceDirectory": "${workspaceFolder}/firmware",
+    "cmake.buildDirectory": "${workspaceFolder}/build/vscode-firmware",
+    "cmake.configureOnOpen": true,
+    "cmake.configureSettings": {
+      "PICO_SDK_PATH": "/home/michael/gitroot/pico-dev/pico-sdk",
+      "CMAKE_BUILD_TYPE": "Release"
+    }
+  }
+}
