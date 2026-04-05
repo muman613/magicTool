@@ -45,7 +45,7 @@ If you only want the Qt5 host library and do not want to configure the firmware 
 
 ```bash
 cmake -S . -B build -DDEBUG_TOOL_BUILD_FIRMWARE=OFF
-cmake --build build --target debug_tool_qt5
+cmake --build build --target magictool
 ```
 
 For VS Code with CMake Tools, the workspace is configured to use `host/` as the active `cmake.sourceDirectory`, with a build directory under `build/vscode-host`. That keeps editor configure/build actions on the Qt library project instead of the mixed root build.
@@ -69,7 +69,7 @@ The root `CMakeLists.txt` supports two build modes:
 - When building only one side, it adds `firmware/` or `host/` directly with `add_subdirectory()`.
 - When building both firmware and host together, it uses separate sub-builds so the native Qt toolchain and Pico cross-toolchain do not conflict.
 
-In the combined build, firmware artifacts such as `.uf2`, `.elf`, and related files are placed under `build/firmware/`, and the Qt5 compatibility library is built under `build/host/`. In host-only mode, `debug_tool_qt5` is built directly in the selected build tree.
+In the combined build, firmware artifacts such as `.uf2`, `.elf`, and related files are placed under `build/firmware/`, and the Qt5 compatibility library is built under `build/host/`. In host-only mode, `magictool` is built directly in the selected build tree.
 
 To remove generated build output:
 
@@ -79,20 +79,18 @@ rm -rf build
 
 ## Firmware Behavior
 
-The firmware exposes a USB serial command interface and drives GPIO 2 on the Pico 2 W.
+The firmware exposes a USB CDC interface with a compact 2-byte binary protocol.
 
-Supported commands:
+- Outputs `0..3` are mapped to GPIO `2, 3, 4, 5`
+- Inputs `0..1` are mapped to GPIO `6, 7`
+- Host command packets are 2 bytes: upper nibble = command, lower nibble = selector, second byte = argument
+- Firmware replies are 2-byte event packets and may also include asynchronous input-change notifications
 
-- `PULSE <n>`: output `n` pulses on GPIO 2
-- `SET <0|1>`: set GPIO 2 low or high
-- `CLR`: drive GPIO 2 low
-- `TOGGLE`: toggle GPIO 2
-
-Responses are written back over USB serial as plain text status messages.
+The current firmware supports output control, input/output bitmap reads, notification enable/disable, version query, and ping.
 
 ## Qt5 Host Library
 
-The host-side Qt5 library target is `debug_tool_qt5`. It wraps `QSerialPort` and exposes a small synchronous API for talking to the firmware over the CDC serial interface.
+The host-side Qt5 library target is `magictool`. It wraps `QSerialPort` and exposes a small synchronous API for talking to the firmware over the CDC serial interface.
 
 Public header:
 
@@ -103,10 +101,14 @@ host/include/debug_tool_qt5/DebugToolDevice.h
 Key methods:
 
 - `Open(const QString &portName)`
-- `Pulse(int count)`
-- `Set(int value)`
-- `Clear()`
-- `Toggle()`
+- `Pulse(quint8 outputIndex, quint8 count = 1)`
+- `Set(quint8 outputIndex)`
+- `Clear(quint8 outputIndex)`
+- `Toggle(quint8 outputIndex)`
+- `ReadInputs(quint8 *bitsOut = nullptr)`
+- `ReadOutputs(quint8 *bitsOut = nullptr)`
+- `GetVersion(quint8 *versionOut = nullptr)`
+- `Ping(quint8 value, quint8 *echoedOut = nullptr)`
 - `LastResponse()`
 - `LastErrorString()`
 
@@ -125,7 +127,7 @@ if (!device.Open("/dev/ttyACM0")) {
     return;
 }
 
-if (!device.Pulse(5)) {
+if (!device.Pulse(0, 5)) {
     qWarning() << device.LastErrorString();
 }
 ```

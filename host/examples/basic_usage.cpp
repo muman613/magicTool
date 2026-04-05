@@ -9,10 +9,14 @@ namespace {
 int PrintUsage(const QString &programName) {
     qInfo().noquote()
         << "Usage:\n"
-        << "  " + programName + " <port> pulse <count>\n"
-        << "  " + programName + " <port> set <0|1>\n"
-        << "  " + programName + " <port> clear\n"
-        << "  " + programName + " <port> toggle";
+        << "  " + programName + " <port> pulse <output> <count>\n"
+        << "  " + programName + " <port> set <output>\n"
+        << "  " + programName + " <port> clear <output>\n"
+        << "  " + programName + " <port> toggle <output>\n"
+        << "  " + programName + " <port> read-inputs\n"
+        << "  " + programName + " <port> read-outputs\n"
+        << "  " + programName + " <port> ping <value>\n"
+        << "  " + programName + " <port> version";
     return 1;
 }
 
@@ -35,26 +39,49 @@ int main(int argc, char *argv[]) {
     }
 
     bool ok = false;
+    quint8 value = 0;
+
     if (command == QStringLiteral("pulse")) {
-        if (args.size() != 4) {
+        if (args.size() != 5) {
             return PrintUsage(args.at(0));
         }
-        ok = device.Pulse(args.at(3).toInt());
+        ok = device.Pulse(static_cast<quint8>(args.at(3).toUInt()),
+                          static_cast<quint8>(args.at(4).toUInt()));
     } else if (command == QStringLiteral("set")) {
         if (args.size() != 4) {
             return PrintUsage(args.at(0));
         }
-        ok = device.Set(args.at(3).toInt());
+        ok = device.Set(static_cast<quint8>(args.at(3).toUInt()));
     } else if (command == QStringLiteral("clear")) {
-        if (args.size() != 3) {
+        if (args.size() != 4) {
             return PrintUsage(args.at(0));
         }
-        ok = device.Clear();
+        ok = device.Clear(static_cast<quint8>(args.at(3).toUInt()));
     } else if (command == QStringLiteral("toggle")) {
+        if (args.size() != 4) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.Toggle(static_cast<quint8>(args.at(3).toUInt()));
+    } else if (command == QStringLiteral("read-inputs")) {
         if (args.size() != 3) {
             return PrintUsage(args.at(0));
         }
-        ok = device.Toggle();
+        ok = device.ReadInputs(&value);
+    } else if (command == QStringLiteral("read-outputs")) {
+        if (args.size() != 3) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.ReadOutputs(&value);
+    } else if (command == QStringLiteral("ping")) {
+        if (args.size() != 4) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.Ping(static_cast<quint8>(args.at(3).toUInt()), &value);
+    } else if (command == QStringLiteral("version")) {
+        if (args.size() != 3) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.GetVersion(&value);
     } else {
         return PrintUsage(args.at(0));
     }
@@ -65,5 +92,12 @@ int main(int argc, char *argv[]) {
     }
 
     qInfo().noquote() << "Response:" << device.LastResponse();
+    if (command == QStringLiteral("read-inputs") ||
+        command == QStringLiteral("read-outputs") ||
+        command == QStringLiteral("ping") ||
+        command == QStringLiteral("version")) {
+        qInfo().noquote() << "Value:" << value;
+    }
+
     return 0;
 }

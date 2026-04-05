@@ -1,23 +1,22 @@
-# debug_tool_qt5
+# magictool
 
-`debug_tool_qt5` is a small Qt5 library for sending synchronous serial commands to the `debug_tool` Pico firmware. It wraps `QSerialPort` with a narrow API that matches the firmware command set and keeps the most recent response and error string available to the caller.
+`magictool` is a Qt5 library for talking to the `debug_tool` Pico firmware over its USB CDC interface. It wraps `QSerialPort`, sends the firmware's 2-byte binary protocol, and provides a synchronous API for output control, state queries, and notification management.
 
-## What it does
+## Protocol model
 
-The library talks to the Pico over its USB CDC serial port and sends newline-terminated ASCII commands. Each command blocks until either:
+The firmware protocol uses fixed-width 2-byte packets.
 
-- the firmware returns a newline-terminated response
-- the configured timeout expires
-- the serial port reports an error
+Host to Pico:
 
-The current firmware protocol supports these commands:
+- byte 0: upper nibble = command, lower nibble = selector
+- byte 1: command argument
 
-- `PULSE <n>`
-- `SET <0|1>`
-- `CLR`
-- `TOGGLE`
+Pico to host:
 
-Successful firmware responses are expected to begin with `OK`. Any other response is treated as a command failure and is copied into `LastErrorString()`.
+- byte 0: upper nibble = event type, lower nibble = info
+- byte 1: payload
+
+The firmware can emit asynchronous `EVT_INPUT_CHANGE` packets at any time. The host library handles that by queueing unexpected packets while it waits for the specific reply to the command it just sent.
 
 ## Public API
 
@@ -27,10 +26,20 @@ Public header:
 #include <debug_tool_qt5/DebugToolDevice.h>
 ```
 
-Namespace:
+Key types:
 
 ```cpp
-debug_tool_qt5
+enum CommandCode : quint8;
+enum EventType : quint8;
+enum ErrorCode : quint8;
+
+struct EventPacket {
+    quint8 header;
+    quint8 arg;
+
+    EventType Type() const;
+    quint8 Info() const;
+};
 ```
 
 Class overview:
@@ -52,72 +61,63 @@ public:
 
     QString LastResponse() const;
     QString LastErrorString() const;
+    EventPacket LastPacket() const;
 
-    bool Pulse(int count);
-    bool Set(int value);
-    bool Clear();
-    bool Toggle();
+    bool HasPendingEvent() const;
+    bool TakePendingEvent(EventPacket *eventOut);
+    bool WaitForEvent(EventPacket *eventOut, int timeoutMs = -1);
+
+    bool Pulse(quint8 outputIndex, quint8 count = 1);
+    bool Set(quint8 outputIndex);
+    bool Clear(quint8 outputIndex);
+    bool Toggle(quint8 outputIndex);
+    bool WriteMask(quint8 mask);
+
+    bool ReadInputs(quint8 *bitsOut = nullptr);
+    bool ReadOutputs(quint8 *bitsOut = nullptr);
+
+    bool EnableNotify(quint8 inputIndex);
+    bool EnableAllNotify();
+    bool DisableNotify(quint8 inputIndex);
+    bool DisableAllNotify();
+
+    bool GetVersion(quint8 *versionOut = nullptr);
+    bool Ping(quint8 value, quint8 *echoedOut = nullptr);
 };
 ```
 
 Behavior notes:
 
-- `Open()` resets the previous response and error state before configuring the serial port.
-- `Open()` always configures `8N1` with no flow control.
-- `Set(int value)` sends `SET 1` for any non-zero value and `SET 0` for zero.
-- `LastResponse()` contains the raw single-line response returned by the firmware for the most recent command.
-- `LastErrorString()` contains either a transport error, a timeout message, or a non-`OK` firmware response.
-- The API is synchronous and not thread-safe by design.
+- `Pulse()`, `Set()`, `Clear()`, and `Toggle()` address firmware outputs `0..3`.
+- `ReadInputs()` returns the current 2-bit input bitmap.
+- `ReadOutputs()` returns the current 4-bit output bitmap.
+- `EnableNotify()` and `DisableNotify()` address inputs `0..1`.
+- `LastResponse()` is a human-readable summary of the most recent reply packet.
+- `LastErrorString()` contains transport errors, timeout errors, or decoded firmware error packets.
 
 ## Build and link
 
-The host library can be built on its own:
+Build the host library on its own:
 
 ```bash
 cmake -S host -B build/host
 cmake --build build/host
 ```
 
-This produces a static library:
+This produces:
 
 ```text
-build/host/libdebug_tool_qt5.a
+build/host/libmagictool.a
 ```
 
-Required dependencies:
+Dependencies:
 
 - CMake 3.16 or newer
 - Qt5 Core
 - Qt5 SerialPort
 - A C++17 compiler
 
-### CMake integration
-
-If another project vendors this repository, it can add the `host/` directory directly and link the library target:
-
-```cmake
-add_subdirectory(path/to/debug_tool/host)
-
-target_link_libraries(my_app
-    PRIVATE
-        debug_tool_qt5
-)
-```
-
-An alias target is also provided:
-
-```cmake
-target_link_libraries(my_app
-    PRIVATE
-        debug_tool::qt5
-)
-```
-
-This project does not currently install or export a package config, so `find_package(debug_tool_qt5)` is not available.
-
 ## Example usage
-
-Minimal usage:
 
 ```cpp
 #include <QDebug>
@@ -130,52 +130,35 @@ if (!device.Open(QStringLiteral("/dev/ttyACM0"))) {
     return;
 }
 
-if (!device.Pulse(5)) {
+if (!device.Pulse(0, 5)) {
     qWarning() << "Pulse failed:" << device.LastErrorString();
     return;
 }
 
-qDebug() << "Firmware response:" << device.LastResponse();
-device.Close();
-```
-
-A buildable example program is included at:
-
-- `host/examples/basic_usage.cpp`
-
-To build it:
-
-```bash
-cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
-cmake --build build/host --target debug_tool_qt5_basic_example
-```
-
-Example invocation:
-
-```bash
-./build/host/debug_tool_qt5_basic_example /dev/ttyACM0 pulse 5
-./build/host/debug_tool_qt5_basic_example /dev/ttyACM0 set 1
-./build/host/debug_tool_qt5_basic_example /dev/ttyACM0 clear
-./build/host/debug_tool_qt5_basic_example /dev/ttyACM0 toggle
-```
-
-## Selecting the serial port
-
-Typical device names:
-
-- Linux: `/dev/ttyACM0`
-- macOS: `/dev/cu.usbmodem...`
-- Windows: `COM3`
-
-If you want to enumerate candidate ports in Qt before opening one:
-
-```cpp
-for (const QSerialPortInfo &port : QSerialPortInfo::availablePorts()) {
-    qDebug() << port.portName() << port.description();
+quint8 inputs = 0;
+if (!device.ReadInputs(&inputs)) {
+    qWarning() << "ReadInputs failed:" << device.LastErrorString();
+    return;
 }
+
+qDebug() << "Last response:" << device.LastResponse();
+qDebug() << "Input bitmap:" << inputs;
 ```
 
-Then open either by port name or by `QSerialPortInfo`.
+A buildable CLI example is included at `host/examples/basic_usage.cpp` and builds as `magictool`.
+
+Example invocations:
+
+```bash
+./build/host/magictool /dev/ttyACM0 pulse 0 5
+./build/host/magictool /dev/ttyACM0 set 1
+./build/host/magictool /dev/ttyACM0 clear 1
+./build/host/magictool /dev/ttyACM0 toggle 2
+./build/host/magictool /dev/ttyACM0 read-inputs
+./build/host/magictool /dev/ttyACM0 read-outputs
+./build/host/magictool /dev/ttyACM0 ping 42
+./build/host/magictool /dev/ttyACM0 version
+```
 
 ## Failure modes
 
@@ -184,6 +167,7 @@ Common reasons a call returns `false`:
 - the port could not be opened
 - the device is not connected
 - the firmware did not answer before the timeout
-- the firmware returned an error line or a response not starting with `OK`
+- the firmware returned an `EVT_ERROR` packet
+- the requested input or output selector is invalid
 
-For all of these cases, inspect `LastErrorString()` first.
+Inspect `LastErrorString()` first when a call fails.
