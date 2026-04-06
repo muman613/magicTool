@@ -112,25 +112,30 @@ DebugToolDevice::DebugToolDevice(int timeoutMs)
     : timeoutMs_(timeoutMs) {
 }
 
+DebugToolDevice::~DebugToolDevice() {
+    Close();
+}
+
 bool DebugToolDevice::Open(const QString &portName, qint32 baudRate) {
     Close();
     rxBuffer_.clear();
     pendingEvents_.clear();
     ResetLastStatus();
 
-    serialPort_.setPortName(portName);
-    serialPort_.setBaudRate(baudRate);
-    serialPort_.setDataBits(QSerialPort::Data8);
-    serialPort_.setParity(QSerialPort::NoParity);
-    serialPort_.setStopBits(QSerialPort::OneStop);
-    serialPort_.setFlowControl(QSerialPort::NoFlowControl);
+    QSerialPort *serialPort = EnsureSerialPort();
+    serialPort->setPortName(portName);
+    serialPort->setBaudRate(baudRate);
+    serialPort->setDataBits(QSerialPort::Data8);
+    serialPort->setParity(QSerialPort::NoParity);
+    serialPort->setStopBits(QSerialPort::OneStop);
+    serialPort->setFlowControl(QSerialPort::NoFlowControl);
 
-    if (!serialPort_.open(QIODevice::ReadWrite)) {
-        SetErrorString(serialPort_.errorString());
+    if (!serialPort->open(QIODevice::ReadWrite)) {
+        SetErrorString(serialPort->errorString());
         return false;
     }
 
-    serialPort_.clear(QSerialPort::AllDirections);
+    serialPort->clear(QSerialPort::AllDirections);
     return true;
 }
 
@@ -139,17 +144,17 @@ bool DebugToolDevice::Open(const QSerialPortInfo &portInfo, qint32 baudRate) {
 }
 
 void DebugToolDevice::Close() {
-    if (serialPort_.isOpen()) {
-        serialPort_.close();
+    if (serialPort_ && serialPort_->isOpen()) {
+        serialPort_->close();
     }
 }
 
 bool DebugToolDevice::IsOpen() const {
-    return serialPort_.isOpen();
+    return serialPort_ && serialPort_->isOpen();
 }
 
 QString DebugToolDevice::PortName() const {
-    return serialPort_.portName();
+    return serialPort_ ? serialPort_->portName() : QString();
 }
 
 void DebugToolDevice::SetTimeoutMs(int timeoutMs) {
@@ -326,7 +331,7 @@ bool DebugToolDevice::Ping(quint8 value, quint8 *echoedOut) {
 bool DebugToolDevice::SendCommand(quint8 header, quint8 arg, EventType expectedType, quint8 expectedInfo, EventPacket *responseOut) {
     ResetLastStatus();
 
-    if (!serialPort_.isOpen()) {
+    if (!IsOpen()) {
         SetErrorString(QStringLiteral("Serial port is not open"));
         return false;
     }
@@ -376,6 +381,12 @@ bool DebugToolDevice::ReadPacket(EventPacket *packetOut, int timeoutMs) {
         return false;
     }
 
+    QSerialPort *serialPort = SerialPort();
+    if (!serialPort || !serialPort->isOpen()) {
+        SetErrorString(QStringLiteral("Serial port is not open"));
+        return false;
+    }
+
     QElapsedTimer timer;
     timer.start();
 
@@ -386,16 +397,16 @@ bool DebugToolDevice::ReadPacket(EventPacket *packetOut, int timeoutMs) {
             return false;
         }
 
-        if (!serialPort_.waitForReadyRead(remainingMs)) {
-            if (serialPort_.error() != QSerialPort::TimeoutError) {
-                SetErrorString(serialPort_.errorString());
+        if (!serialPort->waitForReadyRead(remainingMs)) {
+            if (serialPort->error() != QSerialPort::TimeoutError) {
+                SetErrorString(serialPort->errorString());
             } else {
                 SetErrorString(QStringLiteral("Timed out waiting for firmware response"));
             }
             return false;
         }
 
-        rxBuffer_ += serialPort_.readAll();
+        rxBuffer_ += serialPort->readAll();
     }
 
     packetOut->header = static_cast<quint8>(rxBuffer_.at(0));
@@ -405,23 +416,40 @@ bool DebugToolDevice::ReadPacket(EventPacket *packetOut, int timeoutMs) {
 }
 
 bool DebugToolDevice::WritePacket(quint8 header, quint8 arg) {
+    QSerialPort *serialPort = SerialPort();
+    if (!serialPort || !serialPort->isOpen()) {
+        SetErrorString(QStringLiteral("Serial port is not open"));
+        return false;
+    }
+
     const char packet[2] = {
         static_cast<char>(header),
         static_cast<char>(arg),
     };
 
-    const qint64 bytesWritten = serialPort_.write(packet, sizeof(packet));
+    const qint64 bytesWritten = serialPort->write(packet, sizeof(packet));
     if (bytesWritten != sizeof(packet)) {
         SetErrorString(QStringLiteral("Failed to queue complete command packet"));
         return false;
     }
 
-    if (!serialPort_.waitForBytesWritten(timeoutMs_)) {
-        SetErrorString(serialPort_.errorString());
+    if (!serialPort->waitForBytesWritten(timeoutMs_)) {
+        SetErrorString(serialPort->errorString());
         return false;
     }
 
     return true;
+}
+
+QSerialPort *DebugToolDevice::SerialPort() const {
+    return serialPort_.get();
+}
+
+QSerialPort *DebugToolDevice::EnsureSerialPort() {
+    if (!serialPort_) {
+        serialPort_ = std::make_unique<QSerialPort>();
+    }
+    return serialPort_.get();
 }
 
 void DebugToolDevice::ResetLastStatus() {

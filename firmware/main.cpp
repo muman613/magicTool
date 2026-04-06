@@ -339,7 +339,7 @@ static void usb_send_pending_events() {
 
     while (true) {
         EventPacket evt{};
-        if (!queue_try_remove(&g_evt_queue, &evt)) {
+        if (!queue_try_peek(&g_evt_queue, &evt)) {
             break;
         }
 
@@ -348,6 +348,7 @@ static void usb_send_pending_events() {
         }
 
         tud_cdc_write(&evt, sizeof(evt));
+        queue_try_remove(&g_evt_queue, &evt);
     }
 
     tud_cdc_write_flush();

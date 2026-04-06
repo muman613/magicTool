@@ -50,8 +50,8 @@ static uint8_t const kFsConfigurationDescriptor[] = {
 
 static char const *const kStringDescriptors[] = {
     (const char[]){0x09, 0x04},
-    "debug_tool",
-    "Pico Debug Tool",
+    "magictool",
+    "GPIO Debug Tool",
     NULL,
     "Debug CDC",
 };

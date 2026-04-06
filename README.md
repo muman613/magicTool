@@ -9,6 +9,7 @@ This repository is organized so the current Pico firmware lives in its own subdi
 ```text
 debug_tool/
 ├── CMakeLists.txt
+├── docs/
 ├── README.md
 ├── firmware/
 │   ├── CMakeLists.txt
@@ -22,6 +23,7 @@ debug_tool/
 
 - `firmware/` contains the Pico SDK based firmware build.
 - `host/` contains a Qt5 compatibility library for talking to the Pico CDC serial device.
+- `docs/` contains project documentation for the host library and usage examples.
 - `tests/` is reserved for unit tests and other automated validation.
 
 ## Requirements
@@ -115,6 +117,7 @@ Key methods:
 Library documentation:
 
 - `host/README.md`
+- `docs/magiclib.md`
 
 Quick example:
 

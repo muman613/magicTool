@@ -5,6 +5,7 @@ project(magictool LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_AUTOMOC ON)
 
 option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build magictool example programs" OFF)
 
@@ -33,6 +34,8 @@ set_target_properties(magictool_lib PROPERTIES
 )
 
 if(DEBUG_TOOL_QT5_BUILD_EXAMPLES)
+    find_package(Qt5 5.12 REQUIRED COMPONENTS Widgets)
+
     add_executable(magictool_example
         examples/basic_usage.cpp
     )
@@ -44,5 +47,15 @@ if(DEBUG_TOOL_QT5_BUILD_EXAMPLES)
 
     set_target_properties(magictool_example PROPERTIES
         OUTPUT_NAME magictool
+    )
+
+    add_executable(magicUI
+        examples/magicUI.cpp
+    )
+
+    target_link_libraries(magicUI
+        PRIVATE
+            magictool_lib
+            Qt5::Widgets
     )
 endif()

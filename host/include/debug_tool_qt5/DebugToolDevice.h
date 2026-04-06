@@ -5,6 +5,7 @@
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QString>
+#include <memory>
 
 namespace debug_tool_qt5 {
 
@@ -50,6 +51,7 @@ struct EventPacket {
 class DebugToolDevice {
 public:
     explicit DebugToolDevice(int timeoutMs = 2000);
+    ~DebugToolDevice();
 
     bool Open(const QString &portName, qint32 baudRate = QSerialPort::Baud115200);
     bool Open(const QSerialPortInfo &portInfo, qint32 baudRate = QSerialPort::Baud115200);
@@ -87,13 +89,15 @@ public:
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
 
 private:
+    QSerialPort *SerialPort() const;
+    QSerialPort *EnsureSerialPort();
     bool SendCommand(quint8 header, quint8 arg, EventType expectedType, quint8 expectedInfo, EventPacket *responseOut);
     bool ReadPacket(EventPacket *packetOut, int timeoutMs);
     bool WritePacket(quint8 header, quint8 arg);
     void ResetLastStatus();
     void SetErrorString(const QString &message);
 
-    QSerialPort serialPort_;
+    std::unique_ptr<QSerialPort> serialPort_;
     int timeoutMs_;
     QByteArray rxBuffer_;
     QQueue<EventPacket> pendingEvents_;

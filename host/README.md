@@ -115,6 +115,7 @@ Dependencies:
 - CMake 3.16 or newer
 - Qt5 Core
 - Qt5 SerialPort
+- Qt5 Widgets for the `magicUI` example
 - A C++17 compiler
 
 ## Example usage
@@ -146,6 +147,14 @@ qDebug() << "Input bitmap:" << inputs;
 ```
 
 A buildable CLI example is included at `host/examples/basic_usage.cpp` and builds as `magictool`.
+
+When `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, the host build also produces `magicUI`, a Qt5 Widgets example application that:
+
+- opens a selected serial port
+- fetches and logs the firmware version immediately after connect
+- provides buttons for all output operations (`set`, `clear`, `toggle`, `pulse`, `write mask`)
+- exposes query and protocol actions (`read-inputs`, `read-outputs`, `version`, `ping`, notify enable/disable)
+- shows live input transitions using firmware notifications
 
 Example invocations:
 
