@@ -7,7 +7,7 @@
 #include <QString>
 #include <memory>
 
-namespace debug_tool_qt5 {
+namespace magictool {
 
 enum CommandCode : quint8 {
     CMD_NOP = 0x0,
@@ -106,4 +106,4 @@ private:
     QString lastErrorString_;
 };
 
-}  // namespace debug_tool_qt5
+}  // namespace magictool

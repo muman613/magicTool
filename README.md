@@ -50,6 +50,14 @@ cmake -S . -B build -DDEBUG_TOOL_BUILD_FIRMWARE=OFF
 cmake --build build --target magictool
 ```
 
+The default install prefix for the host-side library is `/opt/magictool`. In a host-only build, install it with:
+
+```bash
+cmake -S . -B build -DDEBUG_TOOL_BUILD_FIRMWARE=OFF -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake --build build
+cmake --install build
+```
+
 For VS Code with CMake Tools, the workspace is configured to use `host/` as the active `cmake.sourceDirectory`, with a build directory under `build/vscode-host`. That keeps editor configure/build actions on the Qt library project instead of the mixed root build.
 
 If you want clean editor workflows for both sides of the repository, open one of these workspace files in VS Code:
@@ -97,7 +105,7 @@ The host-side Qt5 library target is `magictool`. It wraps `QSerialPort` and expo
 Public header:
 
 ```text
-host/include/debug_tool_qt5/DebugToolDevice.h
+host/include/magictool/magicdebug.h
 ```
 
 Key methods:
@@ -122,9 +130,9 @@ Library documentation:
 Quick example:
 
 ```cpp
-#include <debug_tool_qt5/DebugToolDevice.h>
+#include <magictool/magicdebug.h>
 
-debug_tool_qt5::DebugToolDevice device;
+magictool::DebugToolDevice device;
 if (!device.Open("/dev/ttyACM0")) {
     qWarning() << device.LastErrorString();
     return;

@@ -1,8 +1,8 @@
-#include "debug_tool_qt5/DebugToolDevice.h"
+#include "magictool/magicdebug.h"
 
 #include <QElapsedTimer>
 
-namespace debug_tool_qt5 {
+namespace magictool {
 namespace {
 
 constexpr quint8 kAllInputsSelector = 0x0F;
@@ -462,4 +462,4 @@ void DebugToolDevice::SetErrorString(const QString &message) {
     lastErrorString_ = message;
 }
 
-}  // namespace debug_tool_qt5
+}  // namespace magictool

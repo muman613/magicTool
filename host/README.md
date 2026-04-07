@@ -23,7 +23,7 @@ The firmware can emit asynchronous `EVT_INPUT_CHANGE` packets at any time. The h
 Public header:
 
 ```cpp
-#include <debug_tool_qt5/DebugToolDevice.h>
+#include <magictool/magicdebug.h>
 ```
 
 Key types:
@@ -118,13 +118,41 @@ Dependencies:
 - Qt5 Widgets for the `magicUI` example
 - A C++17 compiler
 
+Install the library and examples:
+
+```bash
+cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+Default install layout:
+
+```text
+/opt/magictool/bin/magictool
+/opt/magictool/bin/magicUI
+/opt/magictool/lib/libmagictool.a
+/opt/magictool/lib/pkgconfig/magictool.pc
+/opt/magictool/inc/magictool/magicdebug.h
+```
+
+Override the prefix or install subdirectories with standard CMake cache variables:
+
+```bash
+cmake -S host -B build/host \
+  -DCMAKE_INSTALL_PREFIX=/some/prefix \
+  -DMAGICTOOL_INSTALL_BINDIR=bin \
+  -DMAGICTOOL_INSTALL_LIBDIR=lib \
+  -DMAGICTOOL_INSTALL_INCLUDEDIR=inc
+```
+
 ## Example usage
 
 ```cpp
 #include <QDebug>
-#include <debug_tool_qt5/DebugToolDevice.h>
+#include <magictool/magicdebug.h>
 
-debug_tool_qt5::DebugToolDevice device(2000);
+magictool::DebugToolDevice device(2000);
 
 if (!device.Open(QStringLiteral("/dev/ttyACM0"))) {
     qWarning() << "Open failed:" << device.LastErrorString();

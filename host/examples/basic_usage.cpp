@@ -2,7 +2,7 @@
 #include <QDebug>
 #include <QStringList>
 
-#include "debug_tool_qt5/DebugToolDevice.h"
+#include "magictool/magicdebug.h"
 
 namespace {
 
@@ -26,13 +26,13 @@ int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     const QStringList args = app.arguments();
     if (args.size() < 3) {
-        return PrintUsage(args.value(0, QStringLiteral("debug_tool_qt5_basic_example")));
+        return PrintUsage(args.value(0, QStringLiteral("magictool_basic_example")));
     }
 
     const QString portName = args.at(1);
     const QString command = args.at(2).toLower();
 
-    debug_tool_qt5::DebugToolDevice device;
+    magictool::DebugToolDevice device;
     if (!device.Open(portName)) {
         qWarning().noquote() << "Failed to open" << portName << ":" << device.LastErrorString();
         return 2;

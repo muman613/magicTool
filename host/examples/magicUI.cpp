@@ -21,7 +21,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "debug_tool_qt5/DebugToolDevice.h"
+#include "magictool/magicdebug.h"
 
 namespace {
 
@@ -252,7 +252,7 @@ private slots:
             return;
         }
 
-        debug_tool_qt5::EventPacket packet;
+        magictool::EventPacket packet;
         while (device_.TakePendingEvent(&packet)) {
             HandleEvent(packet);
         }
@@ -299,8 +299,8 @@ private:
         });
     }
 
-    void HandleEvent(const debug_tool_qt5::EventPacket &packet) {
-        if (packet.Type() != debug_tool_qt5::EVT_INPUT_CHANGE) {
+    void HandleEvent(const magictool::EventPacket &packet) {
+        if (packet.Type() != magictool::EVT_INPUT_CHANGE) {
             emit LogMessage(FormatTimestamped(QStringLiteral("Event: %1 info=%2 arg=%3")
                 .arg(static_cast<int>(packet.Type()))
                 .arg(packet.Info())
@@ -316,7 +316,7 @@ private:
         emit InputsUpdated(currentBits, changedMask);
     }
 
-    debug_tool_qt5::DebugToolDevice device_;
+    magictool::DebugToolDevice device_;
     QTimer *pollTimer_;
 };
 

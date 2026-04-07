@@ -1,24 +1,120 @@
 # magiclib
 
-`magiclib` in this repository refers to the host-side Qt5 library built from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host). The actual CMake target is `magictool_lib`, and the produced static library is typically `libmagictool.a`.
+`magiclib` in this repository refers to the host-side Qt5 library built from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host). The actual CMake target is `magictool_lib`, and the installed library artifact is `libmagictool.a`.
 
-The main public API is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/debug_tool_qt5/DebugToolDevice.h), which wraps the Pico firmware's 2-byte USB CDC protocol behind a small synchronous Qt interface.
+The main public API is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h), which wraps the Pico firmware's 2-byte USB CDC protocol behind a small synchronous Qt interface.
 
 ## Public header
 
 ```cpp
-#include <debug_tool_qt5/DebugToolDevice.h>
+#include <magictool/magicdebug.h>
 ```
 
 Namespace:
 
 ```cpp
-debug_tool_qt5
+magictool
 ```
 
-## DeviceToolDevice class
+## Installation
 
-The repository does not currently define a `DeviceToolDevice` class. The device wrapper is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/debug_tool_qt5/DebugToolDevice.h), and this is the class application code should use.
+Build and install the host library directly from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host):
+
+```bash
+cmake -S host -B build/host
+cmake --build build/host
+cmake --install build/host
+```
+
+Default requirements:
+
+- CMake 3.16 or newer
+- C++17 compiler
+- Qt5 Core
+- Qt5 SerialPort
+- Qt5 Widgets only if you also build the `magicUI` example
+
+The host project installs to `/opt/magictool` by default. Override that with standard CMake cache variables:
+
+```bash
+cmake -S host -B build/host \
+  -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -DMAGICTOOL_INSTALL_BINDIR=bin \
+  -DMAGICTOOL_INSTALL_LIBDIR=lib \
+  -DMAGICTOOL_INSTALL_INCLUDEDIR=include
+cmake --build build/host
+cmake --install build/host
+```
+
+To install the example programs as well:
+
+```bash
+cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+Default install layout:
+
+```text
+/opt/magictool/lib/libmagictool.a
+/opt/magictool/lib/pkgconfig/magictool.pc
+/opt/magictool/inc/magictool/magicdebug.h
+```
+
+With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, installation also adds:
+
+```text
+/opt/magictool/bin/magictool
+/opt/magictool/bin/magicUI
+```
+
+## Linking
+
+### CMake
+
+Inside the repository, link against the build target directly:
+
+```cmake
+target_link_libraries(your_app PRIVATE magictool_lib)
+```
+
+If you consume the library source as a subdirectory, the alias target is also available:
+
+```cmake
+target_link_libraries(your_app PRIVATE debug_tool::qt5)
+```
+
+### pkg-config
+
+Installation writes a `pkg-config` file to `lib/pkgconfig/magictool.pc`. If you install into a non-standard prefix, point `pkg-config` at it first:
+
+```bash
+export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
+```
+
+Inspect the published flags:
+
+```bash
+pkg-config --cflags --libs magictool
+```
+
+Compile and link an application with `pkg-config`:
+
+```bash
+c++ -std=c++17 example.cpp -o example \
+  $(pkg-config --cflags --libs magictool)
+```
+
+`magictool.pc` exposes:
+
+- include flags for `magictool/magicdebug.h`
+- `-lmagictool`
+- private Qt5 dependencies on `Qt5Core` and `Qt5SerialPort`
+
+## `DebugToolDevice`
+
+The repository does not define a `DeviceToolDevice` class. The device wrapper is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h), and this is the class application code should use.
 
 ### Construction and connection
 
@@ -78,85 +174,57 @@ bool WaitForEvent(EventPacket *eventOut, int timeoutMs = -1);
 
 `LastResponse()` stores a human-readable summary of the most recent successful reply. `LastErrorString()` stores the most recent transport, timeout, or firmware-reported error.
 
-The firmware may emit asynchronous input-change notifications while the library is waiting for a command response. [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/debug_tool_qt5/DebugToolDevice.h) handles that by queueing unrelated packets in an internal pending-event queue. Use `HasPendingEvent()`, `TakePendingEvent()`, or `WaitForEvent()` to consume those notifications.
+The firmware may emit asynchronous input-change notifications while the library is waiting for a command response. [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h) handles that by queueing unrelated packets in an internal pending-event queue. Use `HasPendingEvent()`, `TakePendingEvent()`, or `WaitForEvent()` to consume those notifications.
 
-## Protocol model
+## Example usage
 
-The firmware protocol uses fixed-width 2-byte packets.
-
-Host to device:
-
-- byte 0: upper nibble = command
-- byte 0: lower nibble = selector
-- byte 1: command argument
-
-Device to host:
-
-- byte 0: upper nibble = event type
-- byte 0: lower nibble = info
-- byte 1: payload
-
-Relevant protocol enums are declared in [`DebugToolDevice.h`](/home/michael/gitroot/pico-dev/debug_tool/host/include/debug_tool_qt5/DebugToolDevice.h):
-
-- `CommandCode`
-- `EventType`
-- `ErrorCode`
-
-`EventPacket` provides two helpers:
+Minimal Qt application code:
 
 ```cpp
-EventType Type() const;
-quint8 Info() const;
-```
-
-## Minimal library example
-
-```cpp
+#include <QCoreApplication>
 #include <QDebug>
-#include <debug_tool_qt5/DebugToolDevice.h>
+#include <magictool/magicdebug.h>
 
-void RunExample() {
-    debug_tool_qt5::DebugToolDevice device(2000);
+int main(int argc, char *argv[]) {
+    QCoreApplication app(argc, argv);
+
+    magictool::DebugToolDevice device(2000);
 
     if (!device.Open(QStringLiteral("/dev/ttyACM0"))) {
         qWarning().noquote() << "Open failed:" << device.LastErrorString();
-        return;
+        return 1;
     }
 
     if (!device.Pulse(0, 5)) {
         qWarning().noquote() << "Pulse failed:" << device.LastErrorString();
-        return;
+        return 1;
     }
 
     quint8 inputs = 0;
     if (!device.ReadInputs(&inputs)) {
         qWarning().noquote() << "ReadInputs failed:" << device.LastErrorString();
-        return;
+        return 1;
     }
 
     qInfo().noquote() << "Response:" << device.LastResponse();
     qInfo().noquote() << "Inputs:" << inputs;
+    return 0;
 }
 ```
 
-## `magictool` example program
+Buildable CLI example:
 
-The buildable example lives at [`host/examples/basic_usage.cpp`](/home/michael/gitroot/pico-dev/debug_tool/host/examples/basic_usage.cpp). It creates a `QCoreApplication`, opens the requested serial port, dispatches one command, and prints both the decoded response string and any returned value.
+- Source: [`host/examples/basic_usage.cpp`](/home/michael/gitroot/pico-dev/debug_tool/host/examples/basic_usage.cpp)
+- Output binary: `build/host/magictool`
 
-Build the host library and the example:
+Build it with:
 
 ```bash
 cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
 cmake --build build/host
 ```
 
-The executable is produced as:
-
-```text
-build/host/magictool
-```
-
-Supported commands from the example:
+Supported commands:
 
 - `pulse <output> <count>`
 - `set <output>`
@@ -188,3 +256,32 @@ Value: 42
 ```
 
 If a command fails, the example prints `Command failed:` followed by `LastErrorString()`. Common causes are an unopened port, an invalid input/output index, a firmware timeout, or an `EVT_ERROR` reply from the device.
+
+## Protocol model
+
+The firmware protocol uses fixed-width 2-byte packets.
+
+Host to device:
+
+- byte 0: upper nibble = command
+- byte 0: lower nibble = selector
+- byte 1: command argument
+
+Device to host:
+
+- byte 0: upper nibble = event type
+- byte 0: lower nibble = info
+- byte 1: payload
+
+Relevant protocol enums are declared in [`magicdebug.h`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h):
+
+- `CommandCode`
+- `EventType`
+- `ErrorCode`
+
+`EventPacket` provides two helpers:
+
+```cpp
+EventType Type() const;
+quint8 Info() const;
+```
