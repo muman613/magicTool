@@ -43,6 +43,8 @@ QString CommandName(quint8 code) {
         case CMD_DISABLE_NOTIFY: return QStringLiteral("DISABLE_NOTIFY");
         case CMD_GET_VERSION: return QStringLiteral("GET_VERSION");
         case CMD_PING: return QStringLiteral("PING");
+        case CMD_OPEN: return QStringLiteral("OPEN");
+        case CMD_CLOSE: return QStringLiteral("CLOSE");
         default: return QStringLiteral("UNKNOWN_CMD");
     }
 }
@@ -65,6 +67,7 @@ QString ErrorName(quint8 code) {
         case ERR_BAD_ARGUMENT: return QStringLiteral("BAD_ARGUMENT");
         case ERR_QUEUE_FULL: return QStringLiteral("QUEUE_FULL");
         case ERR_UNKNOWN_CMD: return QStringLiteral("UNKNOWN_CMD");
+        case ERR_LED_UNAVAILABLE: return QStringLiteral("LED_UNAVAILABLE");
         default: return QStringLiteral("UNKNOWN_ERROR");
     }
 }
@@ -326,6 +329,16 @@ bool DebugToolDevice::Ping(quint8 value, quint8 *echoedOut) {
         *echoedOut = response.arg;
     }
     return true;
+}
+
+bool DebugToolDevice::OpenTool() {
+    EventPacket response;
+    return SendCommand(MakeHeader(CMD_OPEN, 0), 0, EVT_ACK, CMD_OPEN, &response);
+}
+
+bool DebugToolDevice::CloseTool() {
+    EventPacket response;
+    return SendCommand(MakeHeader(CMD_CLOSE, 0), 0, EVT_ACK, CMD_CLOSE, &response);
 }
 
 bool DebugToolDevice::SendCommand(quint8 header, quint8 arg, EventType expectedType, quint8 expectedInfo, EventPacket *responseOut) {

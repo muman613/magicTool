@@ -83,6 +83,8 @@ public:
 
     bool GetVersion(quint8 *versionOut = nullptr);
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
+    bool OpenTool();
+    bool CloseTool();
 };
 ```
 
@@ -92,6 +94,7 @@ Behavior notes:
 - `ReadInputs()` returns the current 2-bit input bitmap.
 - `ReadOutputs()` returns the current 4-bit output bitmap.
 - `EnableNotify()` and `DisableNotify()` address inputs `0..1`.
+- `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 - `LastResponse()` is a human-readable summary of the most recent reply packet.
 - `LastErrorString()` contains transport errors, timeout errors, or decoded firmware error packets.
 
@@ -181,7 +184,7 @@ When `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, the host build also produces `magicUI`,
 - opens a selected serial port
 - fetches and logs the firmware version immediately after connect
 - provides buttons for all output operations (`set`, `clear`, `toggle`, `pulse`, `write mask`)
-- exposes query and protocol actions (`read-inputs`, `read-outputs`, `version`, `ping`, notify enable/disable)
+- exposes query and protocol actions (`read-inputs`, `read-outputs`, `version`, `ping`, `open`, `close`, notify enable/disable)
 - shows live input transitions using firmware notifications
 
 Example invocations:
@@ -195,6 +198,8 @@ Example invocations:
 ./build/host/magictool /dev/ttyACM0 read-outputs
 ./build/host/magictool /dev/ttyACM0 ping 42
 ./build/host/magictool /dev/ttyACM0 version
+./build/host/magictool /dev/ttyACM0 open
+./build/host/magictool /dev/ttyACM0 close
 ```
 
 ## Failure modes

@@ -107,6 +107,10 @@ public slots:
 
         emit ConnectionChanged(true, device_.PortName());
 
+        ExecuteCommand(QStringLiteral("OPEN"), [this]() {
+            return device_.OpenTool();
+        });
+
         ExecuteCommand(QStringLiteral("ENABLE_NOTIFY all"), [this]() {
             return device_.EnableAllNotify();
         }, [this]() {
@@ -140,6 +144,10 @@ public slots:
             emit ConnectionChanged(false, QString());
             return;
         }
+
+        ExecuteCommand(QStringLiteral("CLOSE"), [this]() {
+            return device_.CloseTool();
+        });
 
         emit LogMessage(FormatTimestamped(QStringLiteral("Closing %1").arg(device_.PortName())));
         device_.Close();

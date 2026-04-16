@@ -1,6 +1,6 @@
 # debug_tool
 
-`debug_tool` is a Raspberry Pi Pico 2 W helper project used to drive a GPIO pin over a simple USB serial command interface. It is intended as a standalone debug aid for other hardware and firmware work, including Argus-related debugging, but it is not part of the Argus project itself.
+`debug_tool` is a Raspberry Pi Pico 2 / Pico 2 W helper project used to drive a GPIO pin over a simple USB serial command interface. It is intended as a standalone debug aid for other hardware and firmware work, including Argus-related debugging, but it is not part of the Argus project itself.
 
 ## Repository Layout
 
@@ -39,8 +39,8 @@ Example:
 
 ```bash
 export PICO_SDK_PATH=/path/to/pico-sdk
-cmake -S . -B build
-cmake --build build
+cmake --preset firmware-release
+cmake --build --preset firmware-release
 ```
 
 If you only want the Qt5 host library and do not want to configure the firmware build:
@@ -87,6 +87,64 @@ To remove generated build output:
 rm -rf build
 ```
 
+## Firmware Build
+
+The firmware build supports Raspberry Pi Pico 2 and Raspberry Pi Pico 2 W.
+Pico 2 is the default target. Select Pico 2 W by enabling the `PICO_2_W`
+CMake option.
+
+Before configuring, point CMake at a Pico SDK checkout:
+
+```bash
+export PICO_SDK_PATH=/path/to/pico-sdk
+```
+
+Build for Raspberry Pi Pico 2:
+
+```bash
+cmake --preset firmware-release
+cmake --build --preset firmware-release
+```
+
+The Pico 2 UF2 output is:
+
+```text
+build/firmware-release/magictool_fw_pico2.uf2
+```
+
+Build for Raspberry Pi Pico 2 W:
+
+```bash
+cmake -S . -B build/firmware-pico2w-release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DDEBUG_TOOL_BUILD_FIRMWARE=ON \
+  -DDEBUG_TOOL_BUILD_HOST=OFF \
+  -DPICO_2_W=ON
+cmake --build build/firmware-pico2w-release
+```
+
+The Pico 2 W UF2 output is:
+
+```text
+build/firmware-pico2w-release/magictool_fw_pico2_w.uf2
+```
+
+You can also configure the firmware directory directly:
+
+```bash
+# Pico 2
+cmake -S firmware -B build/firmware-pico2 -DCMAKE_BUILD_TYPE=Release
+cmake --build build/firmware-pico2
+
+# Pico 2 W
+cmake -S firmware -B build/firmware-pico2w -DCMAKE_BUILD_TYPE=Release -DPICO_2_W=ON
+cmake --build build/firmware-pico2w
+```
+
+When using VS Code, open `debug_tool_firmware.code-workspace` for a
+firmware-only CMake workflow. Add `"PICO_2_W": "ON"` to that workspace's
+`cmake.configureSettings` when building for Pico 2 W.
+
 ## Firmware Behavior
 
 The firmware exposes a USB CDC interface with a compact 2-byte binary protocol.
@@ -119,6 +177,8 @@ Key methods:
 - `ReadOutputs(quint8 *bitsOut = nullptr)`
 - `GetVersion(quint8 *versionOut = nullptr)`
 - `Ping(quint8 value, quint8 *echoedOut = nullptr)`
+- `OpenTool()`
+- `CloseTool()`
 - `LastResponse()`
 - `LastErrorString()`
 

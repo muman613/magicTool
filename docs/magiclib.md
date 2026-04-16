@@ -151,6 +151,11 @@ State queries:
 - `GetVersion(quint8 *versionOut = nullptr)`
 - `Ping(quint8 value, quint8 *echoedOut = nullptr)`
 
+Device actions:
+
+- `OpenTool()`
+- `CloseTool()`
+
 Notification control:
 
 - `EnableNotify(quint8 inputIndex)`
@@ -158,7 +163,7 @@ Notification control:
 - `DisableNotify(quint8 inputIndex)`
 - `DisableAllNotify()`
 
-The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided.
+The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided. `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 
 ### Status and events
 
@@ -234,6 +239,8 @@ Supported commands:
 - `read-outputs`
 - `ping <value>`
 - `version`
+- `open`
+- `close`
 
 Example invocations:
 
@@ -243,6 +250,8 @@ Example invocations:
 ./build/host/magictool /dev/ttyACM0 read-inputs
 ./build/host/magictool /dev/ttyACM0 ping 42
 ./build/host/magictool /dev/ttyACM0 version
+./build/host/magictool /dev/ttyACM0 open
+./build/host/magictool /dev/ttyACM0 close
 ```
 
 Expected output shape:

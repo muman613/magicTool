@@ -22,6 +22,8 @@ enum CommandCode : quint8 {
     CMD_DISABLE_NOTIFY = 0x9,
     CMD_GET_VERSION = 0xA,
     CMD_PING = 0xB,
+    CMD_OPEN = 0xC,
+    CMD_CLOSE = 0xD,
 };
 
 enum EventType : quint8 {
@@ -38,6 +40,7 @@ enum ErrorCode : quint8 {
     ERR_BAD_ARGUMENT = 3,
     ERR_QUEUE_FULL = 4,
     ERR_UNKNOWN_CMD = 5,
+    ERR_LED_UNAVAILABLE = 6,
 };
 
 struct EventPacket {
@@ -87,6 +90,8 @@ public:
 
     bool GetVersion(quint8 *versionOut = nullptr);
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
+    bool OpenTool();
+    bool CloseTool();
 
 private:
     QSerialPort *SerialPort() const;

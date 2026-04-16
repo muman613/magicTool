@@ -16,7 +16,9 @@ int PrintUsage(const QString &programName) {
         << "  " + programName + " <port> read-inputs\n"
         << "  " + programName + " <port> read-outputs\n"
         << "  " + programName + " <port> ping <value>\n"
-        << "  " + programName + " <port> version";
+        << "  " + programName + " <port> version\n"
+        << "  " + programName + " <port> open\n"
+        << "  " + programName + " <port> close";
     return 1;
 }
 
@@ -82,6 +84,16 @@ int main(int argc, char *argv[]) {
             return PrintUsage(args.at(0));
         }
         ok = device.GetVersion(&value);
+    } else if (command == QStringLiteral("open")) {
+        if (args.size() != 3) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.OpenTool();
+    } else if (command == QStringLiteral("close")) {
+        if (args.size() != 3) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.CloseTool();
     } else {
         return PrintUsage(args.at(0));
     }
