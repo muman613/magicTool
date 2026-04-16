@@ -33,6 +33,14 @@ static constexpr uint EVT_QUEUE_LEN = 64;
 // Input polling interval on worker core
 static constexpr uint32_t INPUT_POLL_US = 100;
 
+#ifndef MAGICTOOL_HW_VERSION
+#define MAGICTOOL_HW_VERSION 1
+#endif
+
+static constexpr uint8_t HW_TYPE_UNKNOWN = 0x0;
+static constexpr uint8_t HW_TYPE_PICO2 = 0x1;
+static constexpr uint8_t HW_TYPE_PICO2_W = 0x2;
+
 bi_decl(bi_4pins_with_names(2, "OUT0", 3, "OUT1", 4, "OUT2", 5, "OUT3"));
 bi_decl(bi_2pins_with_names(6, "IN0 pulldown", 7, "IN1 pulldown"));
 #if defined(PICO_DEFAULT_LED_PIN)
@@ -68,6 +76,7 @@ enum Command : uint8_t {
     CMD_PING = 0xB,
     CMD_OPEN = 0xC,
     CMD_CLOSE = 0xD,
+    CMD_GET_HARDWARE_VERSION = 0xE,
 };
 
 enum EventType : uint8_t {
@@ -135,6 +144,17 @@ static inline bool valid_output_index(uint8_t idx) {
 
 static inline bool valid_input_index(uint8_t idx) {
     return idx < IN_PIN_COUNT;
+}
+
+static inline uint8_t hardware_version_byte() {
+#if defined(PICO_DEBUG_TARGET_PICO2_W)
+    constexpr uint8_t hw_type = HW_TYPE_PICO2_W;
+#elif defined(PICO_DEBUG_TARGET_PICO2)
+    constexpr uint8_t hw_type = HW_TYPE_PICO2;
+#else
+    constexpr uint8_t hw_type = HW_TYPE_UNKNOWN;
+#endif
+    return make_header(hw_type, MAGICTOOL_HW_VERSION);
 }
 
 static uint8_t read_inputs_bitmap() {
@@ -352,6 +372,10 @@ static void process_command(const CommandPacket &pkt) {
 
         case CMD_CLOSE:
             set_indicator_led(cmd, false);
+            break;
+
+        case CMD_GET_HARDWARE_VERSION:
+            enqueue_ack(cmd, hardware_version_byte());
             break;
 
         default:

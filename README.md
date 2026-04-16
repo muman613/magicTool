@@ -154,7 +154,7 @@ The firmware exposes a USB CDC interface with a compact 2-byte binary protocol.
 - Host command packets are 2 bytes: upper nibble = command, lower nibble = selector, second byte = argument
 - Firmware replies are 2-byte event packets and may also include asynchronous input-change notifications
 
-The current firmware supports output control, input/output bitmap reads, notification enable/disable, version query, and ping.
+The current firmware supports output control, input/output bitmap reads, notification enable/disable, firmware version query, hardware version query, and ping.
 
 ## Qt5 Host Library
 
@@ -176,6 +176,7 @@ Key methods:
 - `ReadInputs(quint8 *bitsOut = nullptr)`
 - `ReadOutputs(quint8 *bitsOut = nullptr)`
 - `GetVersion(quint8 *versionOut = nullptr)`
+- `GetHardwareVersion(quint8 *hardwareVersionOut = nullptr)`
 - `Ping(quint8 value, quint8 *echoedOut = nullptr)`
 - `OpenTool()`
 - `CloseTool()`

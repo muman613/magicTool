@@ -45,6 +45,7 @@ QString CommandName(quint8 code) {
         case CMD_PING: return QStringLiteral("PING");
         case CMD_OPEN: return QStringLiteral("OPEN");
         case CMD_CLOSE: return QStringLiteral("CLOSE");
+        case CMD_GET_HARDWARE_VERSION: return QStringLiteral("GET_HARDWARE_VERSION");
         default: return QStringLiteral("UNKNOWN_CMD");
     }
 }
@@ -315,6 +316,18 @@ bool DebugToolDevice::GetVersion(quint8 *versionOut) {
 
     if (versionOut) {
         *versionOut = response.arg;
+    }
+    return true;
+}
+
+bool DebugToolDevice::GetHardwareVersion(quint8 *hardwareVersionOut) {
+    EventPacket response;
+    if (!SendCommand(MakeHeader(CMD_GET_HARDWARE_VERSION, 0), 0, EVT_ACK, CMD_GET_HARDWARE_VERSION, &response)) {
+        return false;
+    }
+
+    if (hardwareVersionOut) {
+        *hardwareVersionOut = response.arg;
     }
     return true;
 }

@@ -17,9 +17,25 @@ int PrintUsage(const QString &programName) {
         << "  " + programName + " <port> read-outputs\n"
         << "  " + programName + " <port> ping <value>\n"
         << "  " + programName + " <port> version\n"
+        << "  " + programName + " <port> hardware\n"
         << "  " + programName + " <port> open\n"
         << "  " + programName + " <port> close";
     return 1;
+}
+
+QString HardwareTypeName(quint8 hardwareType) {
+    switch (hardwareType) {
+        case 0x1: return QStringLiteral("pico2");
+        case 0x2: return QStringLiteral("pico2_w");
+        default: return QStringLiteral("unknown");
+    }
+}
+
+QString HardwareVersionName(quint8 hardwareVersion) {
+    if (hardwareVersion == 0) {
+        return QStringLiteral("unknown");
+    }
+    return QStringLiteral("v%1").arg(hardwareVersion);
 }
 
 }  // namespace
@@ -84,6 +100,11 @@ int main(int argc, char *argv[]) {
             return PrintUsage(args.at(0));
         }
         ok = device.GetVersion(&value);
+    } else if (command == QStringLiteral("hardware")) {
+        if (args.size() != 3) {
+            return PrintUsage(args.at(0));
+        }
+        ok = device.GetHardwareVersion(&value);
     } else if (command == QStringLiteral("open")) {
         if (args.size() != 3) {
             return PrintUsage(args.at(0));
@@ -107,8 +128,16 @@ int main(int argc, char *argv[]) {
     if (command == QStringLiteral("read-inputs") ||
         command == QStringLiteral("read-outputs") ||
         command == QStringLiteral("ping") ||
-        command == QStringLiteral("version")) {
+        command == QStringLiteral("version") ||
+        command == QStringLiteral("hardware")) {
         qInfo().noquote() << "Value:" << value;
+        if (command == QStringLiteral("hardware")) {
+            const quint8 hardwareType = static_cast<quint8>((value >> 4) & 0x0F);
+            const quint8 hardwareVersion = static_cast<quint8>(value & 0x0F);
+            qInfo().noquote() << "Hardware:"
+                              << HardwareTypeName(hardwareType)
+                              << HardwareVersionName(hardwareVersion);
+        }
     }
 
     return 0;

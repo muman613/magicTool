@@ -24,6 +24,7 @@ enum CommandCode : quint8 {
     CMD_PING = 0xB,
     CMD_OPEN = 0xC,
     CMD_CLOSE = 0xD,
+    CMD_GET_HARDWARE_VERSION = 0xE,
 };
 
 enum EventType : quint8 {
@@ -89,6 +90,7 @@ public:
     bool DisableAllNotify();
 
     bool GetVersion(quint8 *versionOut = nullptr);
+    bool GetHardwareVersion(quint8 *hardwareVersionOut = nullptr);
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
     bool OpenTool();
     bool CloseTool();
