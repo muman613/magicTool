@@ -28,58 +28,215 @@ debug_tool/
 
 ## Requirements
 
-- `cmake` 3.13 or newer
+- `cmake` 3.16 or newer
 - a native build tool supported by CMake such as `make` or `ninja`
 - A working Raspberry Pi Pico SDK checkout
 - `PICO_SDK_PATH` exported in your shell environment
 - An ARM embedded toolchain compatible with the Pico SDK
 - Qt5 Core and Qt5 SerialPort development packages for the host library
+- Qt5 Widgets development packages for the `magicUI` host application
 
-Example:
+The firmware presets require `PICO_SDK_PATH`:
 
 ```bash
 export PICO_SDK_PATH=/path/to/pico-sdk
-cmake --preset firmware-release
-cmake --build --preset firmware-release
 ```
 
-If you only want the Qt5 host library and do not want to configure the firmware build:
-
-```bash
-cmake -S . -B build -DDEBUG_TOOL_BUILD_FIRMWARE=OFF
-cmake --build build --target magictool
-```
-
-The default install prefix for the host-side library is `/opt/magictool`. In a host-only build, install it with:
-
-```bash
-cmake -S . -B build -DDEBUG_TOOL_BUILD_FIRMWARE=OFF -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
-cmake --build build
-cmake --install build
-```
-
-For VS Code with CMake Tools, the workspace is configured to use `host/` as the active `cmake.sourceDirectory`, with a build directory under `build/vscode-host`. That keeps editor configure/build actions on the Qt library project instead of the mixed root build.
-
-If you want clean editor workflows for both sides of the repository, open one of these workspace files in VS Code:
-
-- `debug_tool_host.code-workspace`
-- `debug_tool_firmware.code-workspace`
+The host-only presets do not require the Pico SDK.
 
 ## Build
 
-Configure and build from the repository root:
+Prefer the CMake presets below. They keep host and firmware outputs in separate
+build directories and avoid mixing the native Qt toolchain with the Pico
+cross-toolchain.
+
+### Host Applications
+
+The host build produces:
+
+- `magictool`, the command-line example from `host/examples/basic_usage.cpp`
+- `magicUI`, the Qt Widgets application
+- `libmagictool.a`, the Qt5 host library
+
+Build host Debug:
 
 ```bash
-cmake -S . -B build
-cmake --build build
+cmake --preset host-debug
+cmake --build --preset host-debug
 ```
 
-The root `CMakeLists.txt` supports two build modes:
+Build host Release:
 
-- When building only one side, it adds `firmware/` or `host/` directly with `add_subdirectory()`.
-- When building both firmware and host together, it uses separate sub-builds so the native Qt toolchain and Pico cross-toolchain do not conflict.
+```bash
+cmake --preset host-release
+cmake --build --preset host-release
+```
 
-In the combined build, firmware artifacts such as `.uf2`, `.elf`, and related files are placed under `build/firmware/`, and the Qt5 compatibility library is built under `build/host/`. In host-only mode, `magictool` is built directly in the selected build tree.
+Host output paths:
+
+```text
+build/host-debug/host/magictool
+build/host-debug/host/magicUI
+build/host-debug/host/libmagictool.a
+build/host-release/host/magictool
+build/host-release/host/magicUI
+build/host-release/host/libmagictool.a
+```
+
+### Firmware Only
+
+Build Pico 2 Debug:
+
+```bash
+cmake --preset firmware-pico2-debug
+cmake --build --preset firmware-pico2-debug
+```
+
+Build Pico 2 Release:
+
+```bash
+cmake --preset firmware-pico2-release
+cmake --build --preset firmware-pico2-release
+```
+
+Build Pico 2 W Debug:
+
+```bash
+cmake --preset firmware-pico2w-debug
+cmake --build --preset firmware-pico2w-debug
+```
+
+Build Pico 2 W Release:
+
+```bash
+cmake --preset firmware-pico2w-release
+cmake --build --preset firmware-pico2w-release
+```
+
+Firmware UF2 output paths:
+
+```text
+build/firmware-pico2-debug/firmware/magictool_fw_pico2.uf2
+build/firmware-pico2-release/firmware/magictool_fw_pico2.uf2
+build/firmware-pico2w-debug/firmware/magictool_fw_pico2_w.uf2
+build/firmware-pico2w-release/firmware/magictool_fw_pico2_w.uf2
+```
+
+### Host And Firmware Together
+
+The combined presets build the selected firmware target and the host
+applications in separate sub-builds under one top-level build directory.
+
+Build all targets for Pico 2 Debug:
+
+```bash
+cmake --preset all-pico2-debug
+cmake --build --preset all-pico2-debug
+```
+
+Build all targets for Pico 2 Release:
+
+```bash
+cmake --preset all-pico2-release
+cmake --build --preset all-pico2-release
+```
+
+Build all targets for Pico 2 W Debug:
+
+```bash
+cmake --preset all-pico2w-debug
+cmake --build --preset all-pico2w-debug
+```
+
+Build all targets for Pico 2 W Release:
+
+```bash
+cmake --preset all-pico2w-release
+cmake --build --preset all-pico2w-release
+```
+
+Combined build output paths use nested sub-build directories:
+
+```text
+build/all-pico2-release/firmware/magictool_fw_pico2.uf2
+build/all-pico2-release/host/magictool
+build/all-pico2-release/host/magicUI
+build/all-pico2w-release/firmware/magictool_fw_pico2_w.uf2
+build/all-pico2w-release/host/magictool
+build/all-pico2w-release/host/magicUI
+```
+
+### Install Host Applications
+
+The default install prefix is `/opt/magictool`. Install a host build with:
+
+```bash
+cmake --install build/host-release
+```
+
+If the prefix requires elevated permissions:
+
+```bash
+sudo cmake --install build/host-release
+```
+
+To install into a user-writable prefix, set the prefix when configuring:
+
+```bash
+cmake --preset host-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+cmake --build --preset host-release
+cmake --install build/host-release
+```
+
+Installed host files:
+
+```text
+<prefix>/bin/magictool
+<prefix>/bin/magicUI
+<prefix>/lib/libmagictool.a
+<prefix>/lib/pkgconfig/magictool.pc
+<prefix>/inc/magictool/magicdebug.h
+```
+
+Combined builds install the host sub-build:
+
+```bash
+cmake --install build/all-pico2-release
+```
+
+### Manual CMake Options
+
+Presets are wrappers around these root CMake options:
+
+```text
+DEBUG_TOOL_BUILD_HOST=ON|OFF
+DEBUG_TOOL_BUILD_FIRMWARE=ON|OFF
+DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
+PICO_2_W=ON|OFF
+CMAKE_BUILD_TYPE=Debug|Release
+```
+
+For example, a manual host Release build is:
+
+```bash
+cmake -S . -B build/manual-host-release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DDEBUG_TOOL_BUILD_FIRMWARE=OFF \
+  -DDEBUG_TOOL_BUILD_HOST=ON \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake --build build/manual-host-release
+```
+
+A manual Pico 2 W firmware Release build is:
+
+```bash
+cmake -S . -B build/manual-firmware-pico2w-release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DDEBUG_TOOL_BUILD_FIRMWARE=ON \
+  -DDEBUG_TOOL_BUILD_HOST=OFF \
+  -DPICO_2_W=ON
+cmake --build build/manual-firmware-pico2w-release
+```
 
 To remove generated build output:
 
@@ -87,63 +244,10 @@ To remove generated build output:
 rm -rf build
 ```
 
-## Firmware Build
+For VS Code with CMake Tools, open one of these workspace files:
 
-The firmware build supports Raspberry Pi Pico 2 and Raspberry Pi Pico 2 W.
-Pico 2 is the default target. Select Pico 2 W by enabling the `PICO_2_W`
-CMake option.
-
-Before configuring, point CMake at a Pico SDK checkout:
-
-```bash
-export PICO_SDK_PATH=/path/to/pico-sdk
-```
-
-Build for Raspberry Pi Pico 2:
-
-```bash
-cmake --preset firmware-release
-cmake --build --preset firmware-release
-```
-
-The Pico 2 UF2 output is:
-
-```text
-build/firmware-release/magictool_fw_pico2.uf2
-```
-
-Build for Raspberry Pi Pico 2 W:
-
-```bash
-cmake -S . -B build/firmware-pico2w-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DDEBUG_TOOL_BUILD_FIRMWARE=ON \
-  -DDEBUG_TOOL_BUILD_HOST=OFF \
-  -DPICO_2_W=ON
-cmake --build build/firmware-pico2w-release
-```
-
-The Pico 2 W UF2 output is:
-
-```text
-build/firmware-pico2w-release/magictool_fw_pico2_w.uf2
-```
-
-You can also configure the firmware directory directly:
-
-```bash
-# Pico 2
-cmake -S firmware -B build/firmware-pico2 -DCMAKE_BUILD_TYPE=Release
-cmake --build build/firmware-pico2
-
-# Pico 2 W
-cmake -S firmware -B build/firmware-pico2w -DCMAKE_BUILD_TYPE=Release -DPICO_2_W=ON
-cmake --build build/firmware-pico2w
-```
-
-When using VS Code, open `debug_tool_firmware.code-workspace` for a
-firmware-only CMake workflow. Add `"PICO_2_W": "ON"` to that workspace's
-`cmake.configureSettings` when building for Pico 2 W.
+- `debug_tool_host.code-workspace`
+- `debug_tool_firmware.code-workspace`
 
 ## Firmware Behavior
 
@@ -158,7 +262,7 @@ The current firmware supports output control, input/output bitmap reads, notific
 
 ## Qt5 Host Library
 
-The host-side Qt5 library target is `magictool`. It wraps `QSerialPort` and exposes a small synchronous API for talking to the firmware over the CDC serial interface.
+The host-side Qt5 library CMake target is `magictool_lib`, and the built library file is `libmagictool.a`. It wraps `QSerialPort` and exposes a small synchronous API for talking to the firmware over the CDC serial interface.
 
 Public header:
 
