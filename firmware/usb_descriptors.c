@@ -26,6 +26,12 @@ enum {
 #define EPNUM_CDC_OUT 0x02
 #define EPNUM_CDC_IN 0x82
 
+#if defined(PICO_DEBUG_TARGET_PICO2_W)
+#define USB_PRODUCT_STRING "magictool_w"
+#else
+#define USB_PRODUCT_STRING "magictool"
+#endif
+
 static tusb_desc_device_t const kDeviceDescriptor = {
     .bLength = sizeof(tusb_desc_device_t),
     .bDescriptorType = TUSB_DESC_DEVICE,
@@ -50,7 +56,7 @@ static uint8_t const kFsConfigurationDescriptor[] = {
 
 static char const *const kStringDescriptors[] = {
     (const char[]){0x09, 0x04},
-    "magictool",
+    USB_PRODUCT_STRING,
     "GPIO Debug Tool",
     NULL,
     "Debug CDC",

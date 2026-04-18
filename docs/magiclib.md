@@ -149,7 +149,13 @@ State queries:
 - `ReadInputs(quint8 *bitsOut = nullptr)`
 - `ReadOutputs(quint8 *bitsOut = nullptr)`
 - `GetVersion(quint8 *versionOut = nullptr)`
+- `GetHardwareVersion(quint8 *hardwareVersionOut = nullptr)`
 - `Ping(quint8 value, quint8 *echoedOut = nullptr)`
+
+Device actions:
+
+- `OpenTool()`
+- `CloseTool()`
 
 Notification control:
 
@@ -158,7 +164,7 @@ Notification control:
 - `DisableNotify(quint8 inputIndex)`
 - `DisableAllNotify()`
 
-The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided.
+The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided. `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.). `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 
 ### Status and events
 
@@ -234,6 +240,9 @@ Supported commands:
 - `read-outputs`
 - `ping <value>`
 - `version`
+- `hardware`
+- `open`
+- `close`
 
 Example invocations:
 
@@ -243,6 +252,9 @@ Example invocations:
 ./build/host/magictool /dev/ttyACM0 read-inputs
 ./build/host/magictool /dev/ttyACM0 ping 42
 ./build/host/magictool /dev/ttyACM0 version
+./build/host/magictool /dev/ttyACM0 hardware
+./build/host/magictool /dev/ttyACM0 open
+./build/host/magictool /dev/ttyACM0 close
 ```
 
 Expected output shape:

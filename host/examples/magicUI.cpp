@@ -5,6 +5,8 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDateTime>
+#include <QDir>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -13,7 +15,6 @@
 #include <QMainWindow>
 #include <QMetaObject>
 #include <QPushButton>
-#include <QSerialPortInfo>
 #include <QSpinBox>
 #include <QTextEdit>
 #include <QThread>
@@ -37,6 +38,39 @@ QString FormatTimestamped(const QString &message) {
     return QStringLiteral("[%1] %2")
         .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz")))
         .arg(message);
+}
+
+QString HardwareTypeName(quint8 hardwareType) {
+    switch (hardwareType) {
+        case 0x1: return QStringLiteral("pico2");
+        case 0x2: return QStringLiteral("pico2_w");
+        default: return QStringLiteral("unknown");
+    }
+}
+
+QString HardwareVersionName(quint8 hardwareVersion) {
+    if (hardwareVersion == 0) {
+        return QStringLiteral("unknown");
+    }
+    return QStringLiteral("v%1").arg(hardwareVersion);
+}
+
+QString FormatHardwareVersionByte(quint8 hardwareVersionByte) {
+    const quint8 hardwareType = static_cast<quint8>((hardwareVersionByte >> 4) & 0x0F);
+    const quint8 hardwareVersion = static_cast<quint8>(hardwareVersionByte & 0x0F);
+    return QStringLiteral("%1 %2 (0x%3)")
+        .arg(HardwareTypeName(hardwareType),
+             HardwareVersionName(hardwareVersion),
+             QStringLiteral("%1").arg(hardwareVersionByte, 2, 16, QLatin1Char('0')).toUpper());
+}
+
+QString SerialFromByIdName(const QString &idName) {
+    const int serialStart = idName.lastIndexOf(QLatin1Char('_'));
+    const int serialEnd = idName.indexOf(QStringLiteral("-if"), serialStart + 1);
+    if (serialStart < 0 || serialEnd <= serialStart + 1) {
+        return idName;
+    }
+    return idName.mid(serialStart + 1, serialEnd - serialStart - 1);
 }
 
 void SetIndicatorState(QLabel *label,
@@ -107,6 +141,10 @@ public slots:
 
         emit ConnectionChanged(true, device_.PortName());
 
+        ExecuteCommand(QStringLiteral("OPEN"), [this]() {
+            return device_.OpenTool();
+        });
+
         ExecuteCommand(QStringLiteral("ENABLE_NOTIFY all"), [this]() {
             return device_.EnableAllNotify();
         }, [this]() {
@@ -116,21 +154,28 @@ public slots:
         quint8 version = 0;
         ExecuteCommand(QStringLiteral("GET_VERSION"), [this, &version]() {
             return device_.GetVersion(&version);
-        }, [this, version]() {
+        }, [this, &version]() {
             emit LogMessage(FormatTimestamped(QStringLiteral("Firmware version: %1").arg(version)));
+        });
+
+        quint8 hardwareVersion = 0;
+        ExecuteCommand(QStringLiteral("GET_HARDWARE_VERSION"), [this, &hardwareVersion]() {
+            return device_.GetHardwareVersion(&hardwareVersion);
+        }, [this, &hardwareVersion]() {
+            emit LogMessage(FormatTimestamped(QStringLiteral("Hardware: %1").arg(FormatHardwareVersionByte(hardwareVersion))));
         });
 
         quint8 inputs = 0;
         ExecuteCommand(QStringLiteral("READ_INPUTS"), [this, &inputs]() {
             return device_.ReadInputs(&inputs);
-        }, [this, inputs]() {
+        }, [this, &inputs]() {
             emit InputsUpdated(static_cast<quint8>(inputs & 0x03), 0x03);
         });
 
         quint8 outputs = 0;
         ExecuteCommand(QStringLiteral("READ_OUTPUTS"), [this, &outputs]() {
             return device_.ReadOutputs(&outputs);
-        }, [this, outputs]() {
+        }, [this, &outputs]() {
             emit OutputsUpdated(static_cast<quint8>(outputs & 0x0F));
         });
     }
@@ -140,6 +185,10 @@ public slots:
             emit ConnectionChanged(false, QString());
             return;
         }
+
+        ExecuteCommand(QStringLiteral("CLOSE"), [this]() {
+            return device_.CloseTool();
+        });
 
         emit LogMessage(FormatTimestamped(QStringLiteral("Closing %1").arg(device_.PortName())));
         device_.Close();
@@ -180,7 +229,7 @@ public slots:
         quint8 inputs = 0;
         ExecuteCommand(QStringLiteral("READ_INPUTS"), [this, &inputs]() {
             return device_.ReadInputs(&inputs);
-        }, [this, inputs]() {
+        }, [this, &inputs]() {
             emit LogMessage(FormatTimestamped(QStringLiteral("Inputs: 0b%1").arg(FormatBits(inputs, 2))));
             emit InputsUpdated(static_cast<quint8>(inputs & 0x03), 0x03);
         });
@@ -190,7 +239,7 @@ public slots:
         quint8 outputs = 0;
         ExecuteCommand(QStringLiteral("READ_OUTPUTS"), [this, &outputs]() {
             return device_.ReadOutputs(&outputs);
-        }, [this, outputs]() {
+        }, [this, &outputs]() {
             emit LogMessage(FormatTimestamped(QStringLiteral("Outputs: 0b%1").arg(FormatBits(outputs, 4))));
             emit OutputsUpdated(static_cast<quint8>(outputs & 0x0F));
         });
@@ -200,8 +249,17 @@ public slots:
         quint8 version = 0;
         ExecuteCommand(QStringLiteral("GET_VERSION"), [this, &version]() {
             return device_.GetVersion(&version);
-        }, [this, version]() {
+        }, [this, &version]() {
             emit LogMessage(FormatTimestamped(QStringLiteral("Firmware version: %1").arg(version)));
+        });
+    }
+
+    void GetHardwareVersion() {
+        quint8 hardwareVersion = 0;
+        ExecuteCommand(QStringLiteral("GET_HARDWARE_VERSION"), [this, &hardwareVersion]() {
+            return device_.GetHardwareVersion(&hardwareVersion);
+        }, [this, &hardwareVersion]() {
+            emit LogMessage(FormatTimestamped(QStringLiteral("Hardware: %1").arg(FormatHardwareVersionByte(hardwareVersion))));
         });
     }
 
@@ -478,6 +536,7 @@ public:
         auto *readInputsButton = new QPushButton(QStringLiteral("Read Inputs"), deviceBox);
         auto *readOutputsButton = new QPushButton(QStringLiteral("Read Outputs"), deviceBox);
         auto *versionButton = new QPushButton(QStringLiteral("Get Version"), deviceBox);
+        auto *hardwareButton = new QPushButton(QStringLiteral("Get Hardware"), deviceBox);
         auto *pingRow = new QWidget(deviceBox);
         auto *pingLayout = new QHBoxLayout(pingRow);
         pingLayout->setContentsMargins(0, 0, 0, 0);
@@ -489,10 +548,12 @@ public:
         deviceLayout->addRow(QStringLiteral("Query inputs"), readInputsButton);
         deviceLayout->addRow(QStringLiteral("Query outputs"), readOutputsButton);
         deviceLayout->addRow(QStringLiteral("Firmware"), versionButton);
+        deviceLayout->addRow(QStringLiteral("Hardware"), hardwareButton);
         deviceLayout->addRow(QStringLiteral("Ping"), pingRow);
         managedWidgets_.push_back(readInputsButton);
         managedWidgets_.push_back(readOutputsButton);
         managedWidgets_.push_back(versionButton);
+        managedWidgets_.push_back(hardwareButton);
         managedWidgets_.push_back(pingSpin_);
         managedWidgets_.push_back(pingButton);
 
@@ -504,6 +565,9 @@ public:
         });
         connect(versionButton, &QPushButton::clicked, this, [this]() {
             InvokeWorker([this]() { worker_->GetVersion(); });
+        });
+        connect(hardwareButton, &QPushButton::clicked, this, [this]() {
+            InvokeWorker([this]() { worker_->GetHardwareVersion(); });
         });
         connect(pingButton, &QPushButton::clicked, this, [this]() {
             InvokeWorker([this]() { worker_->Ping(pingSpin_->value()); });
@@ -572,36 +636,59 @@ private:
     void RefreshPorts() {
         const QString current = SelectedPortName();
         portCombo_->clear();
+        hasDevicePorts_ = false;
 
-        QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
-        std::sort(ports.begin(), ports.end(), [](const QSerialPortInfo &left, const QSerialPortInfo &right) {
-            return left.portName() < right.portName();
-        });
+        const QDir serialById(QStringLiteral("/dev/serial/by-id"));
+        const QFileInfoList entries = serialById.entryInfoList(
+            QDir::Files | QDir::System | QDir::NoDotAndDotDot,
+            QDir::Name);
 
-        for (const QSerialPortInfo &port : ports) {
+        for (const QFileInfo &entry : entries) {
+            const QString idName = entry.fileName();
+            if (!idName.startsWith(QStringLiteral("usb-magictool"), Qt::CaseInsensitive)) {
+                continue;
+            }
+
+            QString portPath = entry.canonicalFilePath();
+            if (portPath.isEmpty()) {
+                portPath = entry.symLinkTarget();
+            }
+            if (portPath.isEmpty()) {
+                continue;
+            }
+
             const QString label = QStringLiteral("%1 (%2)")
-                .arg(port.portName(),
-                     port.description().isEmpty() ? QStringLiteral("no description") : port.description());
-            portCombo_->addItem(label, port.portName());
+                .arg(SerialFromByIdName(idName), QFileInfo(portPath).fileName());
+            portCombo_->addItem(label, portPath);
+        }
+
+        hasDevicePorts_ = portCombo_->count() > 0;
+        if (!hasDevicePorts_) {
+            portCombo_->addItem(QStringLiteral("No magictool devices found"), QString());
         }
 
         const int matchIndex = portCombo_->findData(current);
         if (matchIndex >= 0) {
             portCombo_->setCurrentIndex(matchIndex);
-        } else if (!current.isEmpty()) {
-            portCombo_->setEditText(current);
-        } else if (portCombo_->count() > 0) {
+        } else if (hasDevicePorts_) {
             portCombo_->setCurrentIndex(0);
+        }
+
+        if (!isConnected_) {
+            UpdateConnectionState(false, QString());
         }
     }
 
     void UpdateConnectionState(bool connected, const QString &portName) {
+        isConnected_ = connected;
         connectionStatusLabel_->setText(connected
             ? QStringLiteral("Connected: %1").arg(portName)
-            : QStringLiteral("Disconnected"));
-        connectButton_->setEnabled(!connected);
+            : (hasDevicePorts_
+                ? QStringLiteral("Disconnected")
+                : QStringLiteral("No magictool devices found")));
+        connectButton_->setEnabled(!connected && hasDevicePorts_);
         disconnectButton_->setEnabled(connected);
-        portCombo_->setEnabled(!connected);
+        portCombo_->setEnabled(!connected && hasDevicePorts_);
         for (QWidget *widget : managedWidgets_) {
             widget->setEnabled(connected);
         }
@@ -636,7 +723,7 @@ private:
 
     QString SelectedPortName() const {
         const QVariant data = portCombo_->currentData();
-        return data.isValid() ? data.toString() : portCombo_->currentText().trimmed();
+        return data.isValid() ? data.toString() : QString();
     }
 
     QComboBox *portCombo_ = nullptr;
@@ -652,6 +739,8 @@ private:
     QList<QWidget *> managedWidgets_;
     QThread workerThread_;
     DeviceWorker *worker_ = nullptr;
+    bool hasDevicePorts_ = false;
+    bool isConnected_ = false;
 };
 
 }  // namespace

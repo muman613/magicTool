@@ -2,6 +2,10 @@
 
 #include "bsp/board.h"
 #include "hardware/gpio.h"
+#include "pico/binary_info.h"
+#if defined(PICO_DEBUG_TARGET_PICO2_W)
+#include "pico/cyw43_arch.h"
+#endif
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
@@ -29,6 +33,20 @@ static constexpr uint EVT_QUEUE_LEN = 64;
 // Input polling interval on worker core
 static constexpr uint32_t INPUT_POLL_US = 100;
 
+#ifndef MAGICTOOL_HW_VERSION
+#define MAGICTOOL_HW_VERSION 1
+#endif
+
+static constexpr uint8_t HW_TYPE_UNKNOWN = 0x0;
+static constexpr uint8_t HW_TYPE_PICO2 = 0x1;
+static constexpr uint8_t HW_TYPE_PICO2_W = 0x2;
+
+bi_decl(bi_4pins_with_names(2, "OUT0", 3, "OUT1", 4, "OUT2", 5, "OUT3"));
+bi_decl(bi_2pins_with_names(6, "IN0 pulldown", 7, "IN1 pulldown"));
+#if defined(PICO_DEFAULT_LED_PIN)
+bi_decl(bi_1pin_with_name(PICO_DEFAULT_LED_PIN, "Indicator LED"));
+#endif
+
 // ------------------------------------------------------------
 // Protocol
 // ------------------------------------------------------------
@@ -36,6 +54,8 @@ static constexpr uint32_t INPUT_POLL_US = 100;
 // Host -> Pico, 2 bytes:
 //   byte0: upper nibble = command, lower nibble = selector
 //   byte1: argument
+//   OPEN  = 0xC0 0x00, turns the onboard indicator LED on
+//   CLOSE = 0xD0 0x00, turns the onboard indicator LED off
 //
 // Pico -> Host, 2 bytes:
 //   byte0: upper nibble = event type, lower nibble = info
@@ -54,6 +74,9 @@ enum Command : uint8_t {
     CMD_DISABLE_NOTIFY = 0x9,
     CMD_GET_VERSION = 0xA,
     CMD_PING = 0xB,
+    CMD_OPEN = 0xC,
+    CMD_CLOSE = 0xD,
+    CMD_GET_HARDWARE_VERSION = 0xE,
 };
 
 enum EventType : uint8_t {
@@ -70,6 +93,7 @@ enum ErrorCode : uint8_t {
     ERR_BAD_ARGUMENT = 3,
     ERR_QUEUE_FULL = 4,
     ERR_UNKNOWN_CMD = 5,
+    ERR_LED_UNAVAILABLE = 6,
 };
 
 struct CommandPacket {
@@ -95,6 +119,9 @@ volatile uint8_t g_output_state = 0;
 // Bit0..bit1 correspond to inputs 0..1
 volatile uint8_t g_notify_enable = 0x03;  // both enabled by default
 
+volatile bool g_indicator_led_available = false;
+volatile bool g_indicator_led_state = false;
+
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
@@ -117,6 +144,17 @@ static inline bool valid_output_index(uint8_t idx) {
 
 static inline bool valid_input_index(uint8_t idx) {
     return idx < IN_PIN_COUNT;
+}
+
+static inline uint8_t hardware_version_byte() {
+#if defined(PICO_DEBUG_TARGET_PICO2_W)
+    constexpr uint8_t hw_type = HW_TYPE_PICO2_W;
+#elif defined(PICO_DEBUG_TARGET_PICO2)
+    constexpr uint8_t hw_type = HW_TYPE_PICO2;
+#else
+    constexpr uint8_t hw_type = HW_TYPE_UNKNOWN;
+#endif
+    return make_header(hw_type, MAGICTOOL_HW_VERSION);
 }
 
 static uint8_t read_inputs_bitmap() {
@@ -197,6 +235,39 @@ static void enqueue_ack(uint8_t cmd, uint8_t arg = 0) {
 
 static void enqueue_error(uint8_t cmd, uint8_t err) {
     enqueue_event(EVT_ERROR, cmd, err);
+}
+
+static bool board_indicator_led_init() {
+#if defined(PICO_DEBUG_TARGET_PICO2_W)
+    return cyw43_arch_init() == 0;
+#elif defined(PICO_DEFAULT_LED_PIN)
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    return true;
+#else
+    return false;
+#endif
+}
+
+static void board_indicator_led_set(bool led_on) {
+#if defined(PICO_DEBUG_TARGET_PICO2_W)
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+#elif defined(PICO_DEFAULT_LED_PIN)
+    gpio_put(PICO_DEFAULT_LED_PIN, PICO_DEFAULT_LED_PIN_INVERTED ? !led_on : led_on);
+#else
+    (void)led_on;
+#endif
+}
+
+static void set_indicator_led(uint8_t cmd, bool led_on) {
+    if (!g_indicator_led_available) {
+        enqueue_error(cmd, ERR_LED_UNAVAILABLE);
+        return;
+    }
+
+    board_indicator_led_set(led_on);
+    g_indicator_led_state = led_on;
+    enqueue_ack(cmd, g_indicator_led_state ? 1 : 0);
 }
 
 // ------------------------------------------------------------
@@ -293,6 +364,18 @@ static void process_command(const CommandPacket &pkt) {
 
         case CMD_PING:
             enqueue_ack(cmd, pkt.arg);
+            break;
+
+        case CMD_OPEN:
+            set_indicator_led(cmd, true);
+            break;
+
+        case CMD_CLOSE:
+            set_indicator_led(cmd, false);
+            break;
+
+        case CMD_GET_HARDWARE_VERSION:
+            enqueue_ack(cmd, hardware_version_byte());
             break;
 
         default:
@@ -401,8 +484,17 @@ static void init_gpio() {
     g_output_state = 0;
 }
 
+static void init_indicator_led() {
+    g_indicator_led_available = board_indicator_led_init();
+    if (g_indicator_led_available) {
+        board_indicator_led_set(false);
+        g_indicator_led_state = false;
+    }
+}
+
 int main() {
     board_init();
+    init_indicator_led();
     init_gpio();
 
     queue_init(&g_cmd_queue, sizeof(CommandPacket), CMD_QUEUE_LEN);

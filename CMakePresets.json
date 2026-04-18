@@ -9,7 +9,7 @@
     {
       "name": "host-debug",
       "displayName": "Host Debug",
-      "description": "Configure only the Qt5 host library for IDE work",
+      "description": "Configure only the Qt5 host library and host applications in debug mode",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/host-debug",
       "cacheVariables": {
@@ -22,7 +22,7 @@
     {
       "name": "host-release",
       "displayName": "Host Release",
-      "description": "Configure only the Qt5 host library in release mode",
+      "description": "Configure only the Qt5 host library and host applications in release mode",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/host-release",
       "cacheVariables": {
@@ -33,27 +33,111 @@
       }
     },
     {
-      "name": "all-release",
-      "displayName": "All Release",
-      "description": "Configure host and firmware together using separate sub-builds",
+      "name": "firmware-pico2-debug",
+      "displayName": "Firmware Pico 2 Debug",
+      "description": "Configure only the Pico 2 firmware in debug mode",
       "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/all-release",
+      "binaryDir": "${sourceDir}/build/firmware-pico2-debug",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
-        "DEBUG_TOOL_BUILD_HOST": "ON"
+        "DEBUG_TOOL_BUILD_HOST": "OFF",
+        "PICO_2_W": "OFF"
       }
     },
     {
-      "name": "firmware-release",
-      "displayName": "Firmware Release",
-      "description": "Configure only the Pico firmware",
+      "name": "firmware-pico2-release",
+      "displayName": "Firmware Pico 2 Release",
+      "description": "Configure only the Pico 2 firmware in release mode",
       "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/firmware-release",
+      "binaryDir": "${sourceDir}/build/firmware-pico2-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
-        "DEBUG_TOOL_BUILD_HOST": "OFF"
+        "DEBUG_TOOL_BUILD_HOST": "OFF",
+        "PICO_2_W": "OFF"
+      }
+    },
+    {
+      "name": "firmware-pico2w-debug",
+      "displayName": "Firmware Pico 2 W Debug",
+      "description": "Configure only the Pico 2 W firmware in debug mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/firmware-pico2w-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "OFF",
+        "PICO_2_W": "ON"
+      }
+    },
+    {
+      "name": "firmware-pico2w-release",
+      "displayName": "Firmware Pico 2 W Release",
+      "description": "Configure only the Pico 2 W firmware in release mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/firmware-pico2w-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "OFF",
+        "PICO_2_W": "ON"
+      }
+    },
+    {
+      "name": "all-pico2-debug",
+      "displayName": "All Pico 2 Debug",
+      "description": "Configure the Pico 2 firmware plus host library and applications in debug mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/all-pico2-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "ON",
+        "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON",
+        "PICO_2_W": "OFF"
+      }
+    },
+    {
+      "name": "all-pico2-release",
+      "displayName": "All Pico 2 Release",
+      "description": "Configure the Pico 2 firmware plus host library and applications in release mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/all-pico2-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "ON",
+        "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON",
+        "PICO_2_W": "OFF"
+      }
+    },
+    {
+      "name": "all-pico2w-debug",
+      "displayName": "All Pico 2 W Debug",
+      "description": "Configure the Pico 2 W firmware plus host library and applications in debug mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/all-pico2w-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "ON",
+        "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON",
+        "PICO_2_W": "ON"
+      }
+    },
+    {
+      "name": "all-pico2w-release",
+      "displayName": "All Pico 2 W Release",
+      "description": "Configure the Pico 2 W firmware plus host library and applications in release mode",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/all-pico2w-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEBUG_TOOL_BUILD_FIRMWARE": "ON",
+        "DEBUG_TOOL_BUILD_HOST": "ON",
+        "DEBUG_TOOL_QT5_BUILD_EXAMPLES": "ON",
+        "PICO_2_W": "ON"
       }
     }
   ],
@@ -67,12 +151,36 @@
       "configurePreset": "host-release"
     },
     {
-      "name": "all-release",
-      "configurePreset": "all-release"
+      "name": "firmware-pico2-debug",
+      "configurePreset": "firmware-pico2-debug"
     },
     {
-      "name": "firmware-release",
-      "configurePreset": "firmware-release"
+      "name": "firmware-pico2-release",
+      "configurePreset": "firmware-pico2-release"
+    },
+    {
+      "name": "firmware-pico2w-debug",
+      "configurePreset": "firmware-pico2w-debug"
+    },
+    {
+      "name": "firmware-pico2w-release",
+      "configurePreset": "firmware-pico2w-release"
+    },
+    {
+      "name": "all-pico2-debug",
+      "configurePreset": "all-pico2-debug"
+    },
+    {
+      "name": "all-pico2-release",
+      "configurePreset": "all-pico2-release"
+    },
+    {
+      "name": "all-pico2w-debug",
+      "configurePreset": "all-pico2w-debug"
+    },
+    {
+      "name": "all-pico2w-release",
+      "configurePreset": "all-pico2w-release"
     }
   ]
 }
