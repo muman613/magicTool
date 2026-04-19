@@ -19,6 +19,22 @@ option(DEBUG_TOOL_BUILD_NATIVE "Build the native magictool host library" ON)
 option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build magictool example programs" OFF)
 set(DEBUG_TOOL_NATIVE_BUILD_EXAMPLES ${DEBUG_TOOL_QT5_BUILD_EXAMPLES} CACHE BOOL "Build native magictool example programs")
 
+set(MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR "0" CACHE STRING "Host example major version")
+set(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR "1" CACHE STRING "Host example minor version")
+set(MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION "0" CACHE STRING "Host example revision version")
+
+set(MAGICTOOL_LIBRARY_VERSION_DEFINES
+    MAGICTOOL_LIBRARY_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    MAGICTOOL_LIBRARY_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    MAGICTOOL_LIBRARY_VERSION_REVISION=${PROJECT_VERSION_PATCH}
+)
+
+set(MAGICTOOL_HOST_EXAMPLE_VERSION_DEFINES
+    MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR=${MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR}
+    MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR=${MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR}
+    MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION=${MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION}
+)
+
 if(DEBUG_TOOL_BUILD_NATIVE)
     add_library(magictool_native_lib STATIC
         src/magicdebug_native.cpp
@@ -35,6 +51,11 @@ if(DEBUG_TOOL_BUILD_NATIVE)
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:${MAGICTOOL_INSTALL_INCLUDEDIR}>
+    )
+
+    target_compile_definitions(magictool_native_lib
+        PUBLIC
+            ${MAGICTOOL_LIBRARY_VERSION_DEFINES}
     )
 
     configure_file(
@@ -79,6 +100,11 @@ if(DEBUG_TOOL_BUILD_QT5)
             $<INSTALL_INTERFACE:${MAGICTOOL_INSTALL_INCLUDEDIR}>
     )
 
+    target_compile_definitions(magictool_qt5_lib
+        PUBLIC
+            ${MAGICTOOL_LIBRARY_VERSION_DEFINES}
+    )
+
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/magictool.pc.in
         ${CMAKE_CURRENT_BINARY_DIR}/magictool_qt5.pc
@@ -105,6 +131,11 @@ if(DEBUG_TOOL_BUILD_QT5)
                 magictool_qt5_lib
         )
 
+        target_compile_definitions(magictool_example
+            PRIVATE
+                ${MAGICTOOL_HOST_EXAMPLE_VERSION_DEFINES}
+        )
+
         set_target_properties(magictool_example PROPERTIES
             AUTOMOC ON
             OUTPUT_NAME magictool
@@ -118,6 +149,11 @@ if(DEBUG_TOOL_BUILD_QT5)
             PRIVATE
                 magictool_qt5_lib
                 Qt5::Widgets
+        )
+
+        target_compile_definitions(magicUI
+            PRIVATE
+                ${MAGICTOOL_HOST_EXAMPLE_VERSION_DEFINES}
         )
 
         set_target_properties(magicUI PROPERTIES
@@ -138,6 +174,11 @@ if(DEBUG_TOOL_BUILD_NATIVE AND DEBUG_TOOL_NATIVE_BUILD_EXAMPLES)
     target_link_libraries(magictool_native
         PRIVATE
             magictool_native_lib
+    )
+
+    target_compile_definitions(magictool_native
+        PRIVATE
+            ${MAGICTOOL_HOST_EXAMPLE_VERSION_DEFINES}
     )
 
     install(TARGETS magictool_native

@@ -7,9 +7,30 @@
 
 namespace {
 
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR 0
+#endif
+
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR 1
+#endif
+
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION 0
+#endif
+
+magictool::native::Version HostExampleVersion() {
+    return magictool::native::Version{
+        static_cast<std::uint8_t>(MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR),
+        static_cast<std::uint8_t>(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR),
+        static_cast<std::uint8_t>(MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION),
+    };
+}
+
 int PrintUsage(const std::string &programName) {
     std::cout
         << "Usage:\n"
+        << "  " << programName << " --version\n"
         << "  " << programName << " <port> pulse <output> <count>\n"
         << "  " << programName << " <port> set <output>\n"
         << "  " << programName << " <port> clear <output>\n"
@@ -47,6 +68,14 @@ std::string HardwareVersionName(std::uint8_t hardwareVersion) {
 
 int main(int argc, char *argv[]) {
     const std::string programName = argc > 0 ? argv[0] : "magictool_native";
+    if (argc == 2 && std::string(argv[1]) == "--version") {
+        std::cout << "magictool host "
+                  << magictool::native::FormatVersion(HostExampleVersion()) << '\n';
+        std::cout << "magictool library "
+                  << magictool::native::FormatVersion(magictool::native::DebugToolDevice::LibraryVersion()) << '\n';
+        return 0;
+    }
+
     if (argc < 3) {
         return PrintUsage(programName);
     }
@@ -62,6 +91,7 @@ int main(int argc, char *argv[]) {
 
     bool ok = false;
     std::uint8_t value = 0;
+    magictool::native::Version firmwareVersion;
 
     if (command == "pulse") {
         if (argc != 5) {
@@ -102,7 +132,7 @@ int main(int argc, char *argv[]) {
         if (argc != 3) {
             return PrintUsage(programName);
         }
-        ok = device.GetVersion(&value);
+        ok = device.GetFirmwareVersion(&firmwareVersion);
     } else if (command == "hardware") {
         if (argc != 3) {
             return PrintUsage(programName);
@@ -131,7 +161,6 @@ int main(int argc, char *argv[]) {
     if (command == "read-inputs" ||
         command == "read-outputs" ||
         command == "ping" ||
-        command == "version" ||
         command == "hardware") {
         std::cout << "Value: " << static_cast<unsigned>(value) << '\n';
         if (command == "hardware") {
@@ -143,6 +172,10 @@ int main(int argc, char *argv[]) {
                       << HardwareVersionName(hardwareVersion)
                       << '\n';
         }
+    }
+    if (command == "version") {
+        std::cout << "Firmware version: "
+                  << magictool::native::FormatVersion(firmwareVersion) << '\n';
     }
 
     return 0;

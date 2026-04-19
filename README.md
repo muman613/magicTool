@@ -327,6 +327,7 @@ The firmware exposes a USB CDC interface with a compact 2-byte binary protocol.
 - Inputs `0..1` are mapped to GPIO `6, 7`
 - Host command packets are 2 bytes: upper nibble = command, lower nibble = selector, second byte = argument
 - Firmware replies are 2-byte event packets and may also include asynchronous input-change notifications
+- Firmware versions use three bytes: major, minor, revision. `GET_VERSION` selector `0` returns major, selector `1` returns minor, and selector `2` returns revision.
 
 The current firmware supports output control, input/output bitmap reads, notification enable/disable, firmware version query, hardware version query, and ping.
 
@@ -358,12 +359,15 @@ Key methods:
 - `ReadInputs(quint8 *bitsOut = nullptr)`
 - `ReadOutputs(quint8 *bitsOut = nullptr)`
 - `GetVersion(quint8 *versionOut = nullptr)`
+- `GetFirmwareVersion(Version *versionOut = nullptr)`
 - `GetHardwareVersion(quint8 *hardwareVersionOut = nullptr)`
 - `Ping(quint8 value, quint8 *echoedOut = nullptr)`
 - `OpenTool()`
 - `CloseTool()`
 - `LastResponse()`
 - `LastErrorString()`
+
+`Open()` queries the firmware version and requires firmware major/minor to match the library major/minor. Revision is ignored for compatibility. `GetVersion()` is retained as a single-byte compatibility helper for the firmware major version; new code should use `GetFirmwareVersion()`.
 
 Library documentation:
 

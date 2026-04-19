@@ -42,6 +42,14 @@ enum ErrorCode : std::uint8_t {
     ERR_LED_UNAVAILABLE = 6,
 };
 
+struct Version {
+    std::uint8_t major = 0;
+    std::uint8_t minor = 0;
+    std::uint8_t revision = 0;
+};
+
+std::string FormatVersion(const Version &version);
+
 struct EventPacket {
     std::uint8_t header = 0;
     std::uint8_t arg = 0;
@@ -54,6 +62,8 @@ class DebugToolDevice {
 public:
     explicit DebugToolDevice(int timeoutMs = 2000);
     ~DebugToolDevice();
+
+    static Version LibraryVersion();
 
     DebugToolDevice(const DebugToolDevice &) = delete;
     DebugToolDevice &operator=(const DebugToolDevice &) = delete;
@@ -93,6 +103,7 @@ public:
     bool DisableAllNotify();
 
     bool GetVersion(std::uint8_t *versionOut = nullptr);
+    bool GetFirmwareVersion(Version *versionOut = nullptr);
     bool GetHardwareVersion(std::uint8_t *hardwareVersionOut = nullptr);
     bool Ping(std::uint8_t value, std::uint8_t *echoedOut = nullptr);
     bool OpenTool();

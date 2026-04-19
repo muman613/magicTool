@@ -44,6 +44,14 @@ enum ErrorCode : quint8 {
     ERR_LED_UNAVAILABLE = 6,
 };
 
+struct Version {
+    quint8 major = 0;
+    quint8 minor = 0;
+    quint8 revision = 0;
+};
+
+QString FormatVersion(const Version &version);
+
 struct EventPacket {
     quint8 header = 0;
     quint8 arg = 0;
@@ -56,6 +64,8 @@ class DebugToolDevice {
 public:
     explicit DebugToolDevice(int timeoutMs = 2000);
     ~DebugToolDevice();
+
+    static Version LibraryVersion();
 
     bool Open(const QString &portName, qint32 baudRate = QSerialPort::Baud115200);
     bool Open(const QSerialPortInfo &portInfo, qint32 baudRate = QSerialPort::Baud115200);
@@ -90,6 +100,7 @@ public:
     bool DisableAllNotify();
 
     bool GetVersion(quint8 *versionOut = nullptr);
+    bool GetFirmwareVersion(Version *versionOut = nullptr);
     bool GetHardwareVersion(quint8 *hardwareVersionOut = nullptr);
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
     bool OpenTool();

@@ -6,9 +6,30 @@
 
 namespace {
 
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR 0
+#endif
+
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR 1
+#endif
+
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION 0
+#endif
+
+magictool::Version HostExampleVersion() {
+    return magictool::Version{
+        static_cast<quint8>(MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR),
+        static_cast<quint8>(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR),
+        static_cast<quint8>(MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION),
+    };
+}
+
 int PrintUsage(const QString &programName) {
     qInfo().noquote()
         << "Usage:\n"
+        << "  " + programName + " --version\n"
         << "  " + programName + " <port> pulse <output> <count>\n"
         << "  " + programName + " <port> set <output>\n"
         << "  " + programName + " <port> clear <output>\n"
@@ -43,6 +64,12 @@ QString HardwareVersionName(quint8 hardwareVersion) {
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     const QStringList args = app.arguments();
+    if (args.size() == 2 && args.at(1) == QStringLiteral("--version")) {
+        qInfo().noquote() << "magictool host" << magictool::FormatVersion(HostExampleVersion());
+        qInfo().noquote() << "magictool library" << magictool::FormatVersion(magictool::DebugToolDevice::LibraryVersion());
+        return 0;
+    }
+
     if (args.size() < 3) {
         return PrintUsage(args.value(0, QStringLiteral("magictool_basic_example")));
     }
@@ -58,6 +85,7 @@ int main(int argc, char *argv[]) {
 
     bool ok = false;
     quint8 value = 0;
+    magictool::Version firmwareVersion;
 
     if (command == QStringLiteral("pulse")) {
         if (args.size() != 5) {
@@ -99,7 +127,7 @@ int main(int argc, char *argv[]) {
         if (args.size() != 3) {
             return PrintUsage(args.at(0));
         }
-        ok = device.GetVersion(&value);
+        ok = device.GetFirmwareVersion(&firmwareVersion);
     } else if (command == QStringLiteral("hardware")) {
         if (args.size() != 3) {
             return PrintUsage(args.at(0));
@@ -128,7 +156,6 @@ int main(int argc, char *argv[]) {
     if (command == QStringLiteral("read-inputs") ||
         command == QStringLiteral("read-outputs") ||
         command == QStringLiteral("ping") ||
-        command == QStringLiteral("version") ||
         command == QStringLiteral("hardware")) {
         qInfo().noquote() << "Value:" << value;
         if (command == QStringLiteral("hardware")) {
@@ -138,6 +165,9 @@ int main(int argc, char *argv[]) {
                               << HardwareTypeName(hardwareType)
                               << HardwareVersionName(hardwareVersion);
         }
+    }
+    if (command == QStringLiteral("version")) {
+        qInfo().noquote() << "Firmware version:" << magictool::FormatVersion(firmwareVersion);
     }
 
     return 0;

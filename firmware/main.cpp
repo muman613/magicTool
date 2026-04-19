@@ -37,6 +37,18 @@ static constexpr uint32_t INPUT_POLL_US = 100;
 #define MAGICTOOL_HW_VERSION 1
 #endif
 
+#ifndef MAGICTOOL_FW_VERSION_MAJOR
+#define MAGICTOOL_FW_VERSION_MAJOR 0
+#endif
+
+#ifndef MAGICTOOL_FW_VERSION_MINOR
+#define MAGICTOOL_FW_VERSION_MINOR 1
+#endif
+
+#ifndef MAGICTOOL_FW_VERSION_REVISION
+#define MAGICTOOL_FW_VERSION_REVISION 0
+#endif
+
 static constexpr uint8_t HW_TYPE_UNKNOWN = 0x0;
 static constexpr uint8_t HW_TYPE_PICO2 = 0x1;
 static constexpr uint8_t HW_TYPE_PICO2_W = 0x2;
@@ -54,6 +66,7 @@ bi_decl(bi_1pin_with_name(PICO_DEFAULT_LED_PIN, "Indicator LED"));
 // Host -> Pico, 2 bytes:
 //   byte0: upper nibble = command, lower nibble = selector
 //   byte1: argument
+//   GET_VERSION selector 0 = major, 1 = minor, 2 = revision
 //   OPEN  = 0xC0 0x00, turns the onboard indicator LED on
 //   CLOSE = 0xD0 0x00, turns the onboard indicator LED off
 //
@@ -359,7 +372,20 @@ static void process_command(const CommandPacket &pkt) {
             break;
 
         case CMD_GET_VERSION:
-            enqueue_ack(cmd, 1);
+            switch (sel) {
+                case 0:
+                    enqueue_ack(cmd, MAGICTOOL_FW_VERSION_MAJOR);
+                    break;
+                case 1:
+                    enqueue_ack(cmd, MAGICTOOL_FW_VERSION_MINOR);
+                    break;
+                case 2:
+                    enqueue_ack(cmd, MAGICTOOL_FW_VERSION_REVISION);
+                    break;
+                default:
+                    enqueue_error(cmd, ERR_BAD_SELECTOR);
+                    break;
+            }
             break;
 
         case CMD_PING:

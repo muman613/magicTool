@@ -10,6 +10,7 @@ Host to Pico:
 
 - byte 0: upper nibble = command, lower nibble = selector
 - byte 1: command argument
+- `GET_VERSION` selector `0` returns firmware major, selector `1` returns minor, and selector `2` returns revision
 
 Pico to host:
 
@@ -88,6 +89,7 @@ public:
     bool DisableAllNotify();
 
     bool GetVersion(quint8 *versionOut = nullptr);
+    bool GetFirmwareVersion(Version *versionOut = nullptr);
     bool GetHardwareVersion(quint8 *hardwareVersionOut = nullptr);
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
     bool OpenTool();
@@ -100,11 +102,15 @@ Behavior notes:
 - `Pulse()`, `Set()`, `Clear()`, and `Toggle()` address firmware outputs `0..3`.
 - `ReadInputs()` returns the current 2-bit input bitmap.
 - `ReadOutputs()` returns the current 4-bit output bitmap.
+- `GetFirmwareVersion()` returns firmware major, minor, and revision bytes.
+- `GetVersion()` is retained as a compatibility helper for the firmware major byte.
 - `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.).
 - `EnableNotify()` and `DisableNotify()` address inputs `0..1`.
 - `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 - `LastResponse()` is a human-readable summary of the most recent reply packet.
 - `LastErrorString()` contains transport errors, timeout errors, or decoded firmware error packets.
+
+`Open()` queries the firmware version and requires firmware major/minor to match the library major/minor. Revision is ignored for compatibility. Host examples and UI tools have their own major/minor/revision version, reported with `--version` for command-line tools and in the UI log.
 
 ## Build and link
 

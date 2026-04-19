@@ -18,7 +18,22 @@ namespace {
 constexpr std::uint8_t kAllInputsSelector = 0x0F;
 constexpr std::uint8_t kOutputCount = 4;
 constexpr std::uint8_t kInputCount = 2;
+constexpr std::uint8_t kVersionMajorSelector = 0;
+constexpr std::uint8_t kVersionMinorSelector = 1;
+constexpr std::uint8_t kVersionRevisionSelector = 2;
 constexpr int kInvalidFd = -1;
+
+#ifndef MAGICTOOL_LIBRARY_VERSION_MAJOR
+#define MAGICTOOL_LIBRARY_VERSION_MAJOR 0
+#endif
+
+#ifndef MAGICTOOL_LIBRARY_VERSION_MINOR
+#define MAGICTOOL_LIBRARY_VERSION_MINOR 1
+#endif
+
+#ifndef MAGICTOOL_LIBRARY_VERSION_REVISION
+#define MAGICTOOL_LIBRARY_VERSION_REVISION 0
+#endif
 
 std::uint8_t HighNibble(std::uint8_t value) {
     return static_cast<std::uint8_t>((value >> 4) & 0x0F);
@@ -142,6 +157,14 @@ int ElapsedMs(std::chrono::steady_clock::time_point start) {
 
 }  // namespace
 
+std::string FormatVersion(const Version &version) {
+    std::ostringstream stream;
+    stream << static_cast<unsigned>(version.major)
+           << '.' << static_cast<unsigned>(version.minor)
+           << '.' << static_cast<unsigned>(version.revision);
+    return stream.str();
+}
+
 EventType EventPacket::Type() const {
     return static_cast<EventType>(HighNibble(header));
 }
@@ -157,6 +180,14 @@ DebugToolDevice::DebugToolDevice(int timeoutMs)
 
 DebugToolDevice::~DebugToolDevice() {
     Close();
+}
+
+Version DebugToolDevice::LibraryVersion() {
+    return Version{
+        static_cast<std::uint8_t>(MAGICTOOL_LIBRARY_VERSION_MAJOR),
+        static_cast<std::uint8_t>(MAGICTOOL_LIBRARY_VERSION_MINOR),
+        static_cast<std::uint8_t>(MAGICTOOL_LIBRARY_VERSION_REVISION),
+    };
 }
 
 DebugToolDevice::DebugToolDevice(DebugToolDevice &&other) noexcept
@@ -251,6 +282,24 @@ bool DebugToolDevice::Open(const std::string &portName, int baudRate) {
     tcflush(fd, TCIOFLUSH);
     fd_ = fd;
     portName_ = portName;
+
+    Version firmwareVersion;
+    if (!GetFirmwareVersion(&firmwareVersion)) {
+        const std::string message = lastErrorString_;
+        Close();
+        SetErrorString(message);
+        return false;
+    }
+
+    const Version libraryVersion = LibraryVersion();
+    if (firmwareVersion.major != libraryVersion.major ||
+        firmwareVersion.minor != libraryVersion.minor) {
+        SetErrorString("Firmware version " + FormatVersion(firmwareVersion) +
+                       " is incompatible with library version " + FormatVersion(libraryVersion));
+        Close();
+        return false;
+    }
+
     return true;
 }
 
@@ -424,12 +473,38 @@ bool DebugToolDevice::DisableAllNotify() {
 
 bool DebugToolDevice::GetVersion(std::uint8_t *versionOut) {
     EventPacket response;
-    if (!SendCommand(MakeHeader(CMD_GET_VERSION, 0), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionMajorSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
         return false;
     }
 
     if (versionOut) {
         *versionOut = response.arg;
+    }
+    return true;
+}
+
+bool DebugToolDevice::GetFirmwareVersion(Version *versionOut) {
+    Version version;
+    EventPacket response;
+
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionMajorSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+        return false;
+    }
+    version.major = response.arg;
+
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionMinorSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+        return false;
+    }
+    version.minor = response.arg;
+
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionRevisionSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+        return false;
+    }
+    version.revision = response.arg;
+
+    lastResponse_ = "Firmware version " + FormatVersion(version);
+    if (versionOut) {
+        *versionOut = version;
     }
     return true;
 }
