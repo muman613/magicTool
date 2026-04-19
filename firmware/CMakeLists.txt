@@ -32,6 +32,7 @@ pico_sdk_init()
 
 add_executable(magictool_fw
     main.cpp
+    reset_interface.c
     usb_descriptors.c
 )
 
@@ -57,8 +58,11 @@ target_compile_definitions(magictool_fw
 )
 
 target_link_libraries(magictool_fw
+    hardware_watchdog
+    pico_bootrom
     pico_stdlib
     pico_multicore
+    pico_usb_reset_interface_headers
     tinyusb_device
     tinyusb_board
 )

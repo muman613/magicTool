@@ -325,11 +325,18 @@ The firmware exposes a USB CDC interface with a compact 2-byte binary protocol.
 
 - Outputs `0..3` are mapped to GPIO `2, 3, 4, 5`
 - Inputs `0..1` are mapped to GPIO `6, 7`
+- A zero-endpoint vendor reset interface is also exposed so `picotool` can force the device into BOOTSEL mode without pressing the BOOTSEL button
 - Host command packets are 2 bytes: upper nibble = command, lower nibble = selector, second byte = argument
 - Firmware replies are 2-byte event packets and may also include asynchronous input-change notifications
 - Firmware versions use three bytes: major, minor, revision. `GET_VERSION` selector `0` returns major, selector `1` returns minor, and selector `2` returns revision.
 
 The current firmware supports output control, input/output bitmap reads, notification enable/disable, firmware version query, hardware version query, and ping.
+
+Because the runtime firmware uses the custom USB VID/PID `0xcafe:0x4000`, force flashing with `picotool` should include that filter:
+
+```bash
+picotool load -f --vid 0xcafe --pid 0x4000 firmware/build_pico2/magictool_fw_pico2.uf2
+```
 
 ## Host Libraries
 

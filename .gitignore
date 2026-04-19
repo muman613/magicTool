@@ -1,4 +1,4 @@
 .codex
 build/*
 firmware/*
-
+!firmware/reset_interface.c
