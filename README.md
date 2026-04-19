@@ -22,7 +22,7 @@ debug_tool/
 ```
 
 - `firmware/` contains the Pico SDK based firmware build.
-- `host/` contains a Qt5 compatibility library for talking to the Pico CDC serial device.
+- `host/` contains native POSIX and Qt5 libraries for talking to the Pico CDC serial device.
 - `docs/` contains project documentation for the host library and usage examples.
 - `tests/` is reserved for unit tests and other automated validation.
 
@@ -33,7 +33,7 @@ debug_tool/
 - A working Raspberry Pi Pico SDK checkout
 - `PICO_SDK_PATH` exported in your shell environment
 - An ARM embedded toolchain compatible with the Pico SDK
-- Qt5 Core and Qt5 SerialPort development packages for the host library
+- Qt5 Core and Qt5 SerialPort development packages for the Qt5 host library
 - Qt5 Widgets development packages for the `magicUI` host application
 
 The firmware presets require `PICO_SDK_PATH`:
@@ -47,16 +47,17 @@ The host-only presets do not require the Pico SDK.
 ## Build
 
 Prefer the CMake presets below. They keep host and firmware outputs in separate
-build directories and avoid mixing the native Qt toolchain with the Pico
-cross-toolchain.
+build directories and avoid mixing the host toolchain with the Pico cross-toolchain.
 
 ### Host Applications
 
 The host build produces:
 
 - `magictool`, the command-line example from `host/examples/basic_usage.cpp`
+- `magictool_native`, the native command-line example from `host/examples/basic_usage_native.cpp`
 - `magicUI`, the Qt Widgets application
-- `libmagictool.a`, the Qt5 host library
+- `libmagictool_native.a`, the native POSIX host library
+- `libmagictool_qt5.a`, the Qt5 host library
 
 Build host Debug:
 
@@ -72,15 +73,29 @@ cmake --preset host-release
 cmake --build --preset host-release
 ```
 
+Build the native POSIX host library and `magictool_native` without Qt:
+
+```bash
+cmake -S host -B build/host-native-only \
+  -DDEBUG_TOOL_BUILD_QT5=OFF \
+  -DDEBUG_TOOL_BUILD_NATIVE=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host-native-only
+```
+
 Host output paths:
 
 ```text
 build/host-debug/host/magictool
+build/host-debug/host/magictool_native
 build/host-debug/host/magicUI
-build/host-debug/host/libmagictool.a
+build/host-debug/host/libmagictool_native.a
+build/host-debug/host/libmagictool_qt5.a
 build/host-release/host/magictool
+build/host-release/host/magictool_native
 build/host-release/host/magicUI
-build/host-release/host/libmagictool.a
+build/host-release/host/libmagictool_native.a
+build/host-release/host/libmagictool_qt5.a
 ```
 
 ### Firmware Only
@@ -160,9 +175,11 @@ Combined build output paths use nested sub-build directories:
 ```text
 build/all-pico2-release/firmware/magictool_fw_pico2.uf2
 build/all-pico2-release/host/magictool
+build/all-pico2-release/host/magictool_native
 build/all-pico2-release/host/magicUI
 build/all-pico2w-release/firmware/magictool_fw_pico2_w.uf2
 build/all-pico2w-release/host/magictool
+build/all-pico2w-release/host/magictool_native
 build/all-pico2w-release/host/magicUI
 ```
 
@@ -192,10 +209,14 @@ Installed host files:
 
 ```text
 <prefix>/bin/magictool
+<prefix>/bin/magictool_native
 <prefix>/bin/magicUI
-<prefix>/lib/libmagictool.a
-<prefix>/lib/pkgconfig/magictool.pc
+<prefix>/lib/libmagictool_native.a
+<prefix>/lib/libmagictool_qt5.a
+<prefix>/lib/pkgconfig/magictool_native.pc
+<prefix>/lib/pkgconfig/magictool_qt5.pc
 <prefix>/inc/magictool/magicdebug.h
+<prefix>/inc/magictool/native/magicdebug.h
 ```
 
 Combined builds install the host sub-build:
@@ -214,7 +235,7 @@ workflow is started manually from GitHub Actions. Tag releases publish these
 artifacts to the GitHub release:
 
 - `magictool-linux-x86_64.tar.gz`, containing the installed Linux host tools,
-  static library, pkg-config file, and public headers
+  static libraries, pkg-config files, and public headers
 - `magictool_fw_pico2.uf2`
 - `magictool_fw_pico2_w.uf2`
 
@@ -233,6 +254,7 @@ Presets are wrappers around these root CMake options:
 DEBUG_TOOL_BUILD_HOST=ON|OFF
 DEBUG_TOOL_BUILD_FIRMWARE=ON|OFF
 DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
+DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON|OFF
 PICO_2_W=ON|OFF
 CMAKE_BUILD_TYPE=Debug|Release
 ```
@@ -244,8 +266,16 @@ cmake -S . -B build/manual-host-release \
   -DCMAKE_BUILD_TYPE=Release \
   -DDEBUG_TOOL_BUILD_FIRMWARE=OFF \
   -DDEBUG_TOOL_BUILD_HOST=ON \
-  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
 cmake --build build/manual-host-release
+```
+
+The direct `host/` build also accepts these host-specific options:
+
+```text
+DEBUG_TOOL_BUILD_QT5=ON|OFF
+DEBUG_TOOL_BUILD_NATIVE=ON|OFF
 ```
 
 A manual Pico 2 W firmware Release build is:
@@ -281,14 +311,22 @@ The firmware exposes a USB CDC interface with a compact 2-byte binary protocol.
 
 The current firmware supports output control, input/output bitmap reads, notification enable/disable, firmware version query, hardware version query, and ping.
 
-## Qt5 Host Library
+## Host Libraries
 
-The host-side Qt5 library CMake target is `magictool_lib`, and the built library file is `libmagictool.a`. It wraps `QSerialPort` and exposes a small synchronous API for talking to the firmware over the CDC serial interface.
+The host-side native CMake target is `magictool_native_lib`, and the built library file is `libmagictool_native.a`. It uses the C++ standard library plus POSIX serial calls.
 
-Public header:
+The host-side Qt5 CMake target is `magictool_qt5_lib`, and the built library file is `libmagictool_qt5.a`. It wraps `QSerialPort` and exposes a small synchronous API for talking to the firmware over the CDC serial interface.
+
+Qt5 public header:
 
 ```text
 host/include/magictool/magicdebug.h
+```
+
+Native public header:
+
+```text
+host/include/magictool/native/magicdebug.h
 ```
 
 Key methods:

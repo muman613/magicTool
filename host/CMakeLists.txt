@@ -13,80 +13,138 @@ set(MAGICTOOL_INSTALL_INCLUDEDIR "inc" CACHE STRING "Header install directory")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_AUTOMOC ON)
 
+option(DEBUG_TOOL_BUILD_QT5 "Build the Qt5 magictool host library" ON)
+option(DEBUG_TOOL_BUILD_NATIVE "Build the native magictool host library" ON)
 option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build magictool example programs" OFF)
+set(DEBUG_TOOL_NATIVE_BUILD_EXAMPLES ${DEBUG_TOOL_QT5_BUILD_EXAMPLES} CACHE BOOL "Build native magictool example programs")
 
-find_package(Qt5 5.12 REQUIRED COMPONENTS Core SerialPort)
+if(DEBUG_TOOL_BUILD_NATIVE)
+    add_library(magictool_native_lib STATIC
+        src/magicdebug_native.cpp
+    )
 
-add_library(magictool_lib STATIC
-    src/magicdebug.cpp
-)
+    add_library(debug_tool::native ALIAS magictool_native_lib)
 
-add_library(debug_tool::qt5 ALIAS magictool_lib)
+    set_target_properties(magictool_native_lib PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        OUTPUT_NAME magictool_native
+    )
 
-target_link_libraries(magictool_lib
-    PUBLIC
-        Qt5::Core
-        Qt5::SerialPort
-)
+    target_include_directories(magictool_native_lib
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${MAGICTOOL_INSTALL_INCLUDEDIR}>
+    )
 
-set_target_properties(magictool_lib PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME magictool
-)
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/magictool_native.pc.in
+        ${CMAKE_CURRENT_BINARY_DIR}/magictool_native.pc
+        @ONLY
+    )
 
-target_include_directories(magictool_lib
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:${MAGICTOOL_INSTALL_INCLUDEDIR}>
-)
+    install(TARGETS magictool_native_lib
+        ARCHIVE DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}
+    )
 
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/magictool.pc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/magictool.pc
-    @ONLY
-)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/magictool_native.pc
+        DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}/pkgconfig
+    )
+endif()
 
-install(TARGETS magictool_lib
-    ARCHIVE DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}
-)
+if(DEBUG_TOOL_BUILD_QT5)
+    find_package(Qt5 5.12 REQUIRED COMPONENTS Core SerialPort)
+
+    add_library(magictool_qt5_lib STATIC
+        src/magicdebug.cpp
+    )
+
+    add_library(debug_tool::qt5 ALIAS magictool_qt5_lib)
+
+    target_link_libraries(magictool_qt5_lib
+        PUBLIC
+            Qt5::Core
+            Qt5::SerialPort
+    )
+
+    set_target_properties(magictool_qt5_lib PROPERTIES
+        AUTOMOC ON
+        POSITION_INDEPENDENT_CODE ON
+        OUTPUT_NAME magictool_qt5
+    )
+
+    target_include_directories(magictool_qt5_lib
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${MAGICTOOL_INSTALL_INCLUDEDIR}>
+    )
+
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/magictool.pc.in
+        ${CMAKE_CURRENT_BINARY_DIR}/magictool_qt5.pc
+        @ONLY
+    )
+
+    install(TARGETS magictool_qt5_lib
+        ARCHIVE DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}
+    )
+
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/magictool_qt5.pc
+        DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}/pkgconfig
+    )
+
+    if(DEBUG_TOOL_QT5_BUILD_EXAMPLES)
+        find_package(Qt5 5.12 REQUIRED COMPONENTS Widgets)
+
+        add_executable(magictool_example
+            examples/basic_usage.cpp
+        )
+
+        target_link_libraries(magictool_example
+            PRIVATE
+                magictool_qt5_lib
+        )
+
+        set_target_properties(magictool_example PROPERTIES
+            AUTOMOC ON
+            OUTPUT_NAME magictool
+        )
+
+        add_executable(magicUI
+            examples/magicUI.cpp
+        )
+
+        target_link_libraries(magicUI
+            PRIVATE
+                magictool_qt5_lib
+                Qt5::Widgets
+        )
+
+        set_target_properties(magicUI PROPERTIES
+            AUTOMOC ON
+        )
+
+        install(TARGETS magictool_example magicUI
+            RUNTIME DESTINATION ${MAGICTOOL_INSTALL_BINDIR}
+        )
+    endif()
+endif()
+
+if(DEBUG_TOOL_BUILD_NATIVE AND DEBUG_TOOL_NATIVE_BUILD_EXAMPLES)
+    add_executable(magictool_native
+        examples/basic_usage_native.cpp
+    )
+
+    target_link_libraries(magictool_native
+        PRIVATE
+            magictool_native_lib
+    )
+
+    install(TARGETS magictool_native
+        RUNTIME DESTINATION ${MAGICTOOL_INSTALL_BINDIR}
+    )
+endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
     DESTINATION ${MAGICTOOL_INSTALL_INCLUDEDIR}
 )
-
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/magictool.pc
-    DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}/pkgconfig
-)
-
-if(DEBUG_TOOL_QT5_BUILD_EXAMPLES)
-    find_package(Qt5 5.12 REQUIRED COMPONENTS Widgets)
-
-    add_executable(magictool_example
-        examples/basic_usage.cpp
-    )
-
-    target_link_libraries(magictool_example
-        PRIVATE
-            magictool_lib
-    )
-
-    set_target_properties(magictool_example PROPERTIES
-        OUTPUT_NAME magictool
-    )
-
-    add_executable(magicUI
-        examples/magicUI.cpp
-    )
-
-    target_link_libraries(magicUI
-        PRIVATE
-            magictool_lib
-            Qt5::Widgets
-    )
-
-    install(TARGETS magictool_example magicUI
-        RUNTIME DESTINATION ${MAGICTOOL_INSTALL_BINDIR}
-    )
-endif()

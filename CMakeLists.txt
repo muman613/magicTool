@@ -9,8 +9,9 @@ endif()
 include(ExternalProject)
 
 option(DEBUG_TOOL_BUILD_FIRMWARE "Build the Pico firmware" ON)
-option(DEBUG_TOOL_BUILD_HOST "Build the native Qt5 host library" ON)
+option(DEBUG_TOOL_BUILD_HOST "Build the host libraries and applications" ON)
 option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build debug_tool_qt5 example programs" OFF)
+set(DEBUG_TOOL_NATIVE_BUILD_EXAMPLES ${DEBUG_TOOL_QT5_BUILD_EXAMPLES} CACHE BOOL "Build debug_tool_native example programs")
 option(PICO_2_W "Build firmware for Raspberry Pi Pico 2 W" OFF)
 set(MAGICTOOL_HW_VERSION "1" CACHE STRING "Hardware revision nibble reported by GET_HARDWARE_VERSION")
 
@@ -52,6 +53,7 @@ if(DEBUG_TOOL_BUILD_HOST)
             CMAKE_ARGS
                 ${DEBUG_TOOL_COMMON_CMAKE_ARGS}
                 -DDEBUG_TOOL_QT5_BUILD_EXAMPLES:BOOL=${DEBUG_TOOL_QT5_BUILD_EXAMPLES}
+                -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES:BOOL=${DEBUG_TOOL_NATIVE_BUILD_EXAMPLES}
             INSTALL_COMMAND ""
             USES_TERMINAL_CONFIGURE TRUE
             USES_TERMINAL_BUILD TRUE

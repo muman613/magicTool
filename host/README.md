@@ -1,6 +1,6 @@
 # magictool
 
-`magictool` is a Qt5 library for talking to the `debug_tool` Pico firmware over its USB CDC interface. It wraps `QSerialPort`, sends the firmware's 2-byte binary protocol, and provides a synchronous API for output control, state queries, and notification management.
+`magictool` provides native POSIX and Qt5 libraries for talking to the `debug_tool` Pico firmware over its USB CDC interface. Both libraries send the firmware's 2-byte binary protocol and provide a synchronous API for output control, state queries, and notification management.
 
 ## Protocol model
 
@@ -20,10 +20,16 @@ The firmware can emit asynchronous `EVT_INPUT_CHANGE` packets at any time. The h
 
 ## Public API
 
-Public header:
+Qt5 public header:
 
 ```cpp
 #include <magictool/magicdebug.h>
+```
+
+Native public header:
+
+```cpp
+#include <magictool/native/magicdebug.h>
 ```
 
 Key types:
@@ -112,12 +118,31 @@ cmake --build build/host
 This produces:
 
 ```text
-build/host/libmagictool.a
+build/host/libmagictool_native.a
+build/host/libmagictool_qt5.a
+```
+
+Build only the native POSIX library and example, without Qt:
+
+```bash
+cmake -S host -B build/host-native-only \
+  -DDEBUG_TOOL_BUILD_QT5=OFF \
+  -DDEBUG_TOOL_BUILD_NATIVE=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host-native-only
+```
+
+This produces:
+
+```text
+build/host-native-only/libmagictool_native.a
+build/host-native-only/magictool_native
 ```
 
 Dependencies:
 
 - CMake 3.16 or newer
+- POSIX serial APIs for the native library
 - Qt5 Core
 - Qt5 SerialPort
 - Qt5 Widgets for the `magicUI` example
@@ -135,10 +160,14 @@ Default install layout:
 
 ```text
 /opt/magictool/bin/magictool
+/opt/magictool/bin/magictool_native
 /opt/magictool/bin/magicUI
-/opt/magictool/lib/libmagictool.a
-/opt/magictool/lib/pkgconfig/magictool.pc
+/opt/magictool/lib/libmagictool_native.a
+/opt/magictool/lib/libmagictool_qt5.a
+/opt/magictool/lib/pkgconfig/magictool_native.pc
+/opt/magictool/lib/pkgconfig/magictool_qt5.pc
 /opt/magictool/inc/magictool/magicdebug.h
+/opt/magictool/inc/magictool/native/magicdebug.h
 ```
 
 Override the prefix or install subdirectories with standard CMake cache variables:
@@ -149,6 +178,15 @@ cmake -S host -B build/host \
   -DMAGICTOOL_INSTALL_BINDIR=bin \
   -DMAGICTOOL_INSTALL_LIBDIR=lib \
   -DMAGICTOOL_INSTALL_INCLUDEDIR=inc
+```
+
+Build toggles:
+
+```text
+DEBUG_TOOL_BUILD_NATIVE=ON|OFF
+DEBUG_TOOL_BUILD_QT5=ON|OFF
+DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON|OFF
+DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
 ```
 
 ## Example usage
@@ -181,6 +219,8 @@ qDebug() << "Input bitmap:" << inputs;
 
 A buildable CLI example is included at `host/examples/basic_usage.cpp` and builds as `magictool`.
 
+A native CLI example is included at `host/examples/basic_usage_native.cpp` and builds as `magictool_native`.
+
 When `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, the host build also produces `magicUI`, a Qt5 Widgets example application that:
 
 - opens a selected serial port
@@ -203,6 +243,7 @@ Example invocations:
 ./build/host/magictool /dev/ttyACM0 hardware
 ./build/host/magictool /dev/ttyACM0 open
 ./build/host/magictool /dev/ttyACM0 close
+./build/host/magictool_native /dev/ttyACM0 ping 42
 ```
 
 ## Failure modes

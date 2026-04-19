@@ -1,10 +1,24 @@
 # magiclib
 
-`magiclib` in this repository refers to the host-side Qt5 library built from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host). The actual CMake target is `magictool_lib`, and the installed library artifact is `libmagictool.a`.
+`magiclib` in this repository refers to the host-side libraries built from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host). The native POSIX CMake target is `magictool_native_lib`, and the installed library artifact is `libmagictool_native.a`. The Qt5 CMake target is `magictool_qt5_lib`, and the installed library artifact is `libmagictool_qt5.a`.
 
-The main public API is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h), which wraps the Pico firmware's 2-byte USB CDC protocol behind a small synchronous Qt interface.
+Both libraries expose `DebugToolDevice` wrappers around the Pico firmware's 2-byte USB CDC protocol. The native API uses only the C++ standard library plus POSIX serial calls. The Qt5 API wraps `QSerialPort`.
 
-## Public header
+## Public headers
+
+Native:
+
+```cpp
+#include <magictool/native/magicdebug.h>
+```
+
+Namespace:
+
+```cpp
+magictool::native
+```
+
+Qt5:
 
 ```cpp
 #include <magictool/magicdebug.h>
@@ -30,8 +44,8 @@ Default requirements:
 
 - CMake 3.16 or newer
 - C++17 compiler
-- Qt5 Core
-- Qt5 SerialPort
+- POSIX serial APIs for the native library
+- Qt5 Core and Qt5 SerialPort for the Qt5 library
 - Qt5 Widgets only if you also build the `magicUI` example
 
 The host project installs to `/opt/magictool` by default. Override that with standard CMake cache variables:
@@ -49,23 +63,48 @@ cmake --install build/host
 To install the example programs as well:
 
 ```bash
-cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake -S host -B build/host \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
 cmake --build build/host
 cmake --install build/host
+```
+
+Build only the native POSIX library and example, without Qt:
+
+```bash
+cmake -S host -B build/host-native-only \
+  -DDEBUG_TOOL_BUILD_QT5=OFF \
+  -DDEBUG_TOOL_BUILD_NATIVE=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host-native-only
+```
+
+Host build toggles:
+
+```text
+DEBUG_TOOL_BUILD_NATIVE=ON|OFF
+DEBUG_TOOL_BUILD_QT5=ON|OFF
+DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON|OFF
+DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
 ```
 
 Default install layout:
 
 ```text
-/opt/magictool/lib/libmagictool.a
-/opt/magictool/lib/pkgconfig/magictool.pc
+/opt/magictool/lib/libmagictool_native.a
+/opt/magictool/lib/libmagictool_qt5.a
+/opt/magictool/lib/pkgconfig/magictool_native.pc
+/opt/magictool/lib/pkgconfig/magictool_qt5.pc
 /opt/magictool/inc/magictool/magicdebug.h
+/opt/magictool/inc/magictool/native/magicdebug.h
 ```
 
-With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, installation also adds:
+With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON` and `DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON`, installation also adds:
 
 ```text
 /opt/magictool/bin/magictool
+/opt/magictool/bin/magictool_native
 /opt/magictool/bin/magicUI
 ```
 
@@ -76,18 +115,20 @@ With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, installation also adds:
 Inside the repository, link against the build target directly:
 
 ```cmake
-target_link_libraries(your_app PRIVATE magictool_lib)
+target_link_libraries(your_native_app PRIVATE magictool_native_lib)
+target_link_libraries(your_qt_app PRIVATE magictool_qt5_lib)
 ```
 
-If you consume the library source as a subdirectory, the alias target is also available:
+If you consume the library source as a subdirectory, alias targets are also available:
 
 ```cmake
-target_link_libraries(your_app PRIVATE debug_tool::qt5)
+target_link_libraries(your_native_app PRIVATE debug_tool::native)
+target_link_libraries(your_qt_app PRIVATE debug_tool::qt5)
 ```
 
 ### pkg-config
 
-Installation writes a `pkg-config` file to `lib/pkgconfig/magictool.pc`. If you install into a non-standard prefix, point `pkg-config` at it first:
+Installation writes `pkg-config` files to `lib/pkgconfig/magictool_native.pc` and `lib/pkgconfig/magictool_qt5.pc`. If you install into a non-standard prefix, point `pkg-config` at it first:
 
 ```bash
 export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -96,20 +137,29 @@ export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
 Inspect the published flags:
 
 ```bash
-pkg-config --cflags --libs magictool
+pkg-config --cflags --libs magictool_native
+pkg-config --cflags --libs magictool_qt5
 ```
 
 Compile and link an application with `pkg-config`:
 
 ```bash
-c++ -std=c++17 example.cpp -o example \
-  $(pkg-config --cflags --libs magictool)
+c++ -std=c++17 native_example.cpp -o native_example \
+  $(pkg-config --cflags --libs magictool_native)
+
+c++ -std=c++17 qt_example.cpp -o qt_example \
+  $(pkg-config --cflags --libs magictool_qt5)
 ```
 
-`magictool.pc` exposes:
+`magictool_native.pc` exposes:
+
+- include flags for `magictool/native/magicdebug.h`
+- `-lmagictool_native`
+
+`magictool_qt5.pc` exposes:
 
 - include flags for `magictool/magicdebug.h`
-- `-lmagictool`
+- `-lmagictool_qt5`
 - private Qt5 dependencies on `Qt5Core` and `Qt5SerialPort`
 
 ## `DebugToolDevice`
