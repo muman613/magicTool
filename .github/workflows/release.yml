@@ -33,6 +33,7 @@ jobs:
             cmake \
             gcc-arm-none-eabi \
             libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-dev \
             qtbase5-dev \
             libqt5serialport5-dev
 
