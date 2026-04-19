@@ -204,6 +204,27 @@ Combined builds install the host sub-build:
 cmake --install build/all-pico2-release
 ```
 
+## CI And Releases
+
+GitHub Actions builds the host applications and Pico firmware on pull requests
+and pushes to `main`.
+
+Release builds run when a tag matching `v*` is pushed, or when the release
+workflow is started manually from GitHub Actions. Tag releases publish these
+artifacts to the GitHub release:
+
+- `magictool-linux-x86_64.tar.gz`, containing the installed Linux host tools,
+  static library, pkg-config file, and public headers
+- `magictool_fw_pico2.uf2`
+- `magictool_fw_pico2_w.uf2`
+
+Create a release by tagging the commit and pushing the tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ### Manual CMake Options
 
 Presets are wrappers around these root CMake options:
