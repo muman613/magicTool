@@ -4,7 +4,7 @@ libdir=${prefix}/@MAGICTOOL_INSTALL_LIBDIR@
 includedir=${prefix}/@MAGICTOOL_INSTALL_INCLUDEDIR@
 
 Name: magictool_native
-Description: Native POSIX host library for the debug_tool Pico firmware
+Description: Native POSIX host library for the magicTool Pico firmware
 Version: @PROJECT_VERSION@
 Libs: -L${libdir} -lmagictool_native
 Cflags: -I${includedir}

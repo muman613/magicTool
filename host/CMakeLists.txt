@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(magictool VERSION 0.1.0 LANGUAGES CXX)
+project(magicTool VERSION 0.1.0 LANGUAGES CXX)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/opt/magictool" CACHE PATH "Install path prefix" FORCE)
@@ -24,7 +24,7 @@ if(DEBUG_TOOL_BUILD_NATIVE)
         src/magicdebug_native.cpp
     )
 
-    add_library(debug_tool::native ALIAS magictool_native_lib)
+    add_library(magicTool::native ALIAS magictool_native_lib)
 
     set_target_properties(magictool_native_lib PROPERTIES
         POSITION_INDEPENDENT_CODE ON
@@ -59,7 +59,7 @@ if(DEBUG_TOOL_BUILD_QT5)
         src/magicdebug.cpp
     )
 
-    add_library(debug_tool::qt5 ALIAS magictool_qt5_lib)
+    add_library(magicTool::qt5 ALIAS magictool_qt5_lib)
 
     target_link_libraries(magictool_qt5_lib
         PUBLIC

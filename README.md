@@ -1,13 +1,13 @@
-# debug_tool
+# magicTool
 
-`debug_tool` is a Raspberry Pi Pico 2 / Pico 2 W helper project used to drive a GPIO pin over a simple USB serial command interface. It is intended as a standalone debug aid for other hardware and firmware work, including Argus-related debugging, but it is not part of the Argus project itself.
+`magicTool` is a Raspberry Pi Pico 2 / Pico 2 W helper project used to drive a GPIO pin over a simple USB serial command interface. It is intended as a standalone debug aid for other hardware and firmware work, including Argus-related debugging, but it is not part of the Argus project itself.
 
 ## Repository Layout
 
 This repository is organized so the current Pico firmware lives in its own subdirectory and the project can grow without mixing host-side code, tests, and embedded firmware sources.
 
 ```text
-debug_tool/
+magicTool/
 ├── CMakeLists.txt
 ├── docs/
 ├── README.md
@@ -48,6 +48,25 @@ The host-only presets do not require the Pico SDK.
 
 Prefer the CMake presets below. They keep host and firmware outputs in separate
 build directories and avoid mixing the host toolchain with the Pico cross-toolchain.
+
+For the common cases, use the helper script:
+
+```bash
+./build.sh [pico2|pico2w] [host|fw|all] [debug|release]
+```
+
+All arguments are optional. The defaults are `pico2`, `all`, and `debug`:
+
+```bash
+./build.sh
+```
+
+Examples:
+
+```bash
+./build.sh pico2w fw release
+./build.sh pico2 host debug
+```
 
 ### Host Applications
 
@@ -297,8 +316,8 @@ rm -rf build
 
 For VS Code with CMake Tools, open one of these workspace files:
 
-- `debug_tool_host.code-workspace`
-- `debug_tool_firmware.code-workspace`
+- `magicTool_host.code-workspace`
+- `magicTool_firmware.code-workspace`
 
 ## Firmware Behavior
 
@@ -368,6 +387,88 @@ if (!device.Pulse(0, 5)) {
 ```
 
 A buildable CLI example is also provided at `host/examples/basic_usage.cpp`.
+
+## Simple magiclib App
+
+After installing magicTool, another CMake project can link against the native
+magiclib with `pkg-config`. This example opens the Pico serial device, sends one
+ping, pulses output `0` five times, and prints the firmware response text.
+
+Example layout:
+
+```text
+my_magic_app/
+├── CMakeLists.txt
+└── main.cpp
+```
+
+`main.cpp`:
+
+```cpp
+#include <cstdint>
+#include <iostream>
+#include <string>
+
+#include <magictool/native/magicdebug.h>
+
+int main(int argc, char **argv) {
+    const std::string port = argc > 1 ? argv[1] : "/dev/ttyACM0";
+
+    magictool::native::DebugToolDevice device;
+    if (!device.Open(port)) {
+        std::cerr << "Open failed: " << device.LastErrorString() << '\n';
+        return 1;
+    }
+
+    std::uint8_t echoed = 0;
+    if (!device.Ping(42, &echoed)) {
+        std::cerr << "Ping failed: " << device.LastErrorString() << '\n';
+        return 1;
+    }
+
+    if (!device.Pulse(0, 5)) {
+        std::cerr << "Pulse failed: " << device.LastErrorString() << '\n';
+        return 1;
+    }
+
+    std::cout << "Ping echoed " << static_cast<int>(echoed) << '\n';
+    std::cout << "Last response: " << device.LastResponse() << '\n';
+    return 0;
+}
+```
+
+`CMakeLists.txt`:
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+
+project(my_magic_app LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MAGICTOOL_NATIVE REQUIRED IMPORTED_TARGET magictool_native)
+
+add_executable(my_magic_app main.cpp)
+target_link_libraries(my_magic_app PRIVATE PkgConfig::MAGICTOOL_NATIVE)
+```
+
+Build and run:
+
+```bash
+cmake -S . -B build
+cmake --build build
+./build/my_magic_app /dev/ttyACM0
+```
+
+If magicTool was installed into a non-standard prefix, point `pkg-config` at the
+installed `.pc` file before configuring the app:
+
+```bash
+export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
+```
 
 ## Next Steps
 

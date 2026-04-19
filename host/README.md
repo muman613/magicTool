@@ -1,6 +1,6 @@
-# magictool
+# magicTool
 
-`magictool` provides native POSIX and Qt5 libraries for talking to the `debug_tool` Pico firmware over its USB CDC interface. Both libraries send the firmware's 2-byte binary protocol and provide a synchronous API for output control, state queries, and notification management.
+`magicTool` provides native POSIX and Qt5 libraries for talking to the Pico firmware over its USB CDC interface. Both libraries send the firmware's 2-byte binary protocol and provide a synchronous API for output control, state queries, and notification management.
 
 ## Protocol model
 
