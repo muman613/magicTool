@@ -32,7 +32,9 @@ magictool
 
 ## Installation
 
-Build and install the host library directly from [`host/`](../host):
+Build and install the host library directly from [`host/`](../host). This
+installs the development artifacts: static libraries, public headers, and
+`pkg-config` files.
 
 ```bash
 cmake -S host -B build/host
@@ -60,7 +62,7 @@ cmake --build build/host
 cmake --install build/host
 ```
 
-To install the example programs as well:
+To install the host examples as well:
 
 ```bash
 cmake -S host -B build/host \
@@ -89,7 +91,7 @@ DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON|OFF
 DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
 ```
 
-Default install layout:
+Installed development artifacts:
 
 ```text
 /opt/magictool/lib/libmagictool_native.a
@@ -100,7 +102,7 @@ Default install layout:
 /opt/magictool/inc/magictool/native/magicdebug.h
 ```
 
-With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON` and `DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON`, installation also adds:
+With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON` and `DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON`, installation also adds these host examples:
 
 ```text
 /opt/magictool/bin/magictool

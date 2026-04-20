@@ -202,11 +202,23 @@ build/all-pico2w-release/host/magictool_native
 build/all-pico2w-release/host/magicUI
 ```
 
-### Install Host Applications
+### Install Host Examples And Dev Artifacts
 
-The default install prefix is `/opt/magictool`. Install a host build with:
+The host install includes two groups of files:
+
+- host examples: runnable tools installed under `<prefix>/bin`
+- development artifacts: static libraries, public headers, and `pkg-config`
+  files used by other projects
+
+The repository presets enable both Qt5 and native host examples, so a preset
+host build installs the examples and development artifacts together. The
+default install prefix is `/opt/magictool`.
+
+Build and install the Release host preset:
 
 ```bash
+cmake --preset host-release
+cmake --build --preset host-release
 cmake --install build/host-release
 ```
 
@@ -219,17 +231,32 @@ sudo cmake --install build/host-release
 To install into a user-writable prefix, set the prefix when configuring:
 
 ```bash
-cmake --preset host-release -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+cmake --preset host-release -DCMAKE_INSTALL_PREFIX="$HOME/.local/magictool"
 cmake --build --preset host-release
 cmake --install build/host-release
 ```
 
-Installed host files:
+The installed host examples are:
 
 ```text
 <prefix>/bin/magictool
 <prefix>/bin/magictool_native
 <prefix>/bin/magicUI
+```
+
+The files under `bin/` are the installed host examples:
+
+- `magictool` is the Qt5 command-line example from
+  `host/examples/basic_usage.cpp`
+- `magictool_native` is the native POSIX command-line example from
+  `host/examples/basic_usage_native.cpp`
+- `magicUI` is the Qt Widgets example application from
+  `host/examples/magicUI.cpp`
+
+The remaining files are the development artifacts needed to link another
+project against magicTool:
+
+```text
 <prefix>/lib/libmagictool_native.a
 <prefix>/lib/libmagictool_qt5.a
 <prefix>/lib/pkgconfig/magictool_native.pc
@@ -242,6 +269,29 @@ Combined builds install the host sub-build:
 
 ```bash
 cmake --install build/all-pico2-release
+```
+
+If you configure the `host/` directory directly instead of using repository
+presets, examples are optional. Enable them before installing:
+
+```bash
+cmake -S host -B build/host \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+For a native-only install without Qt, build only the native library and native
+example:
+
+```bash
+cmake -S host -B build/host-native-only \
+  -DDEBUG_TOOL_BUILD_QT5=OFF \
+  -DDEBUG_TOOL_BUILD_NATIVE=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host-native-only
+cmake --install build/host-native-only
 ```
 
 ## CI And Releases
@@ -480,11 +530,3 @@ installed `.pc` file before configuring the app:
 ```bash
 export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
 ```
-
-## Next Steps
-
-The structure now supports the intended expansion path:
-
-- move reusable serial protocol code into `host/`
-- add command parsing and protocol unit tests under `tests/`
-- keep device-specific firmware concerns isolated under `firmware/`

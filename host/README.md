@@ -154,20 +154,54 @@ Dependencies:
 - Qt5 Widgets for the `magicUI` example
 - A C++17 compiler
 
-Install the library and examples:
+## Install Examples And Dev Artifacts
+
+The host install can include both runnable examples and development artifacts.
+Development artifacts are the static libraries, public headers, and
+`pkg-config` files used by downstream projects.
+
+Install only the host libraries and development artifacts:
 
 ```bash
-cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake -S host -B build/host
 cmake --build build/host
 cmake --install build/host
 ```
 
-Default install layout:
+Install the host examples as well:
+
+```bash
+cmake -S host -B build/host \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+By default, the direct `host/` build installs to `/opt/magictool`. If that
+requires elevated permissions, run the install step with `sudo`, or configure a
+user-writable prefix:
+
+```bash
+cmake -S host -B build/host \
+  -DCMAKE_INSTALL_PREFIX="$HOME/.local/magictool" \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+Installed examples:
 
 ```text
 /opt/magictool/bin/magictool
 /opt/magictool/bin/magictool_native
 /opt/magictool/bin/magicUI
+```
+
+Development artifacts:
+
+```text
 /opt/magictool/lib/libmagictool_native.a
 /opt/magictool/lib/libmagictool_qt5.a
 /opt/magictool/lib/pkgconfig/magictool_native.pc
