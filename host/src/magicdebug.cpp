@@ -8,6 +8,21 @@ namespace {
 constexpr quint8 kAllInputsSelector = 0x0F;
 constexpr quint8 kOutputCount = 4;
 constexpr quint8 kInputCount = 2;
+constexpr quint8 kVersionMajorSelector = 0;
+constexpr quint8 kVersionMinorSelector = 1;
+constexpr quint8 kVersionRevisionSelector = 2;
+
+#ifndef MAGICTOOL_LIBRARY_VERSION_MAJOR
+#define MAGICTOOL_LIBRARY_VERSION_MAJOR 0
+#endif
+
+#ifndef MAGICTOOL_LIBRARY_VERSION_MINOR
+#define MAGICTOOL_LIBRARY_VERSION_MINOR 1
+#endif
+
+#ifndef MAGICTOOL_LIBRARY_VERSION_REVISION
+#define MAGICTOOL_LIBRARY_VERSION_REVISION 0
+#endif
 
 quint8 HighNibble(quint8 value) {
     return static_cast<quint8>((value >> 4) & 0x0F);
@@ -104,6 +119,13 @@ QString FormatDeviceError(const EventPacket &packet) {
 
 }  // namespace
 
+QString FormatVersion(const Version &version) {
+    return QStringLiteral("%1.%2.%3")
+        .arg(static_cast<unsigned>(version.major))
+        .arg(static_cast<unsigned>(version.minor))
+        .arg(static_cast<unsigned>(version.revision));
+}
+
 EventType EventPacket::Type() const {
     return static_cast<EventType>(HighNibble(header));
 }
@@ -118,6 +140,14 @@ DebugToolDevice::DebugToolDevice(int timeoutMs)
 
 DebugToolDevice::~DebugToolDevice() {
     Close();
+}
+
+Version DebugToolDevice::LibraryVersion() {
+    return Version{
+        static_cast<quint8>(MAGICTOOL_LIBRARY_VERSION_MAJOR),
+        static_cast<quint8>(MAGICTOOL_LIBRARY_VERSION_MINOR),
+        static_cast<quint8>(MAGICTOOL_LIBRARY_VERSION_REVISION),
+    };
 }
 
 bool DebugToolDevice::Open(const QString &portName, qint32 baudRate) {
@@ -140,6 +170,24 @@ bool DebugToolDevice::Open(const QString &portName, qint32 baudRate) {
     }
 
     serialPort->clear(QSerialPort::AllDirections);
+
+    Version firmwareVersion;
+    if (!GetFirmwareVersion(&firmwareVersion)) {
+        const QString message = lastErrorString_;
+        Close();
+        SetErrorString(message);
+        return false;
+    }
+
+    const Version libraryVersion = LibraryVersion();
+    if (firmwareVersion.major != libraryVersion.major ||
+        firmwareVersion.minor != libraryVersion.minor) {
+        SetErrorString(QStringLiteral("Firmware version %1 is incompatible with library version %2")
+            .arg(FormatVersion(firmwareVersion), FormatVersion(libraryVersion)));
+        Close();
+        return false;
+    }
+
     return true;
 }
 
@@ -310,12 +358,38 @@ bool DebugToolDevice::DisableAllNotify() {
 
 bool DebugToolDevice::GetVersion(quint8 *versionOut) {
     EventPacket response;
-    if (!SendCommand(MakeHeader(CMD_GET_VERSION, 0), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionMajorSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
         return false;
     }
 
     if (versionOut) {
         *versionOut = response.arg;
+    }
+    return true;
+}
+
+bool DebugToolDevice::GetFirmwareVersion(Version *versionOut) {
+    Version version;
+    EventPacket response;
+
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionMajorSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+        return false;
+    }
+    version.major = response.arg;
+
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionMinorSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+        return false;
+    }
+    version.minor = response.arg;
+
+    if (!SendCommand(MakeHeader(CMD_GET_VERSION, kVersionRevisionSelector), 0, EVT_ACK, CMD_GET_VERSION, &response)) {
+        return false;
+    }
+    version.revision = response.arg;
+
+    lastResponse_ = QStringLiteral("Firmware version %1").arg(FormatVersion(version));
+    if (versionOut) {
+        *versionOut = version;
     }
     return true;
 }

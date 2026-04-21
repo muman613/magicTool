@@ -1,6 +1,6 @@
-# magictool
+# magicTool
 
-`magictool` is a Qt5 library for talking to the `debug_tool` Pico firmware over its USB CDC interface. It wraps `QSerialPort`, sends the firmware's 2-byte binary protocol, and provides a synchronous API for output control, state queries, and notification management.
+`magicTool` provides native POSIX and Qt5 libraries for talking to the Pico firmware over its USB CDC interface. Both libraries send the firmware's 2-byte binary protocol and provide a synchronous API for output control, state queries, and notification management.
 
 ## Protocol model
 
@@ -10,6 +10,7 @@ Host to Pico:
 
 - byte 0: upper nibble = command, lower nibble = selector
 - byte 1: command argument
+- `GET_VERSION` selector `0` returns firmware major, selector `1` returns minor, and selector `2` returns revision
 
 Pico to host:
 
@@ -20,10 +21,16 @@ The firmware can emit asynchronous `EVT_INPUT_CHANGE` packets at any time. The h
 
 ## Public API
 
-Public header:
+Qt5 public header:
 
 ```cpp
 #include <magictool/magicdebug.h>
+```
+
+Native public header:
+
+```cpp
+#include <magictool/native/magicdebug.h>
 ```
 
 Key types:
@@ -82,6 +89,7 @@ public:
     bool DisableAllNotify();
 
     bool GetVersion(quint8 *versionOut = nullptr);
+    bool GetFirmwareVersion(Version *versionOut = nullptr);
     bool GetHardwareVersion(quint8 *hardwareVersionOut = nullptr);
     bool Ping(quint8 value, quint8 *echoedOut = nullptr);
     bool OpenTool();
@@ -94,11 +102,15 @@ Behavior notes:
 - `Pulse()`, `Set()`, `Clear()`, and `Toggle()` address firmware outputs `0..3`.
 - `ReadInputs()` returns the current 2-bit input bitmap.
 - `ReadOutputs()` returns the current 4-bit output bitmap.
+- `GetFirmwareVersion()` returns firmware major, minor, and revision bytes.
+- `GetVersion()` is retained as a compatibility helper for the firmware major byte.
 - `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.).
 - `EnableNotify()` and `DisableNotify()` address inputs `0..1`.
 - `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 - `LastResponse()` is a human-readable summary of the most recent reply packet.
 - `LastErrorString()` contains transport errors, timeout errors, or decoded firmware error packets.
+
+`Open()` queries the firmware version and requires firmware major/minor to match the library major/minor. Revision is ignored for compatibility. Host examples and UI tools have their own major/minor/revision version, reported with `--version` for command-line tools and in the UI log.
 
 ## Build and link
 
@@ -112,33 +124,90 @@ cmake --build build/host
 This produces:
 
 ```text
-build/host/libmagictool.a
+build/host/libmagictool_native.a
+build/host/libmagictool_qt5.a
+```
+
+Build only the native POSIX library and example, without Qt:
+
+```bash
+cmake -S host -B build/host-native-only \
+  -DDEBUG_TOOL_BUILD_QT5=OFF \
+  -DDEBUG_TOOL_BUILD_NATIVE=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host-native-only
+```
+
+This produces:
+
+```text
+build/host-native-only/libmagictool_native.a
+build/host-native-only/magictool_native
 ```
 
 Dependencies:
 
 - CMake 3.16 or newer
+- POSIX serial APIs for the native library
 - Qt5 Core
 - Qt5 SerialPort
 - Qt5 Widgets for the `magicUI` example
 - A C++17 compiler
 
-Install the library and examples:
+## Install Examples And Dev Artifacts
+
+The host install can include both runnable examples and development artifacts.
+Development artifacts are the static libraries, public headers, and
+`pkg-config` files used by downstream projects.
+
+Install only the host libraries and development artifacts:
 
 ```bash
-cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake -S host -B build/host
 cmake --build build/host
 cmake --install build/host
 ```
 
-Default install layout:
+Install the host examples as well:
+
+```bash
+cmake -S host -B build/host \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+By default, the direct `host/` build installs to `/opt/magictool`. If that
+requires elevated permissions, run the install step with `sudo`, or configure a
+user-writable prefix:
+
+```bash
+cmake -S host -B build/host \
+  -DCMAKE_INSTALL_PREFIX="$HOME/.local/magictool" \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host
+cmake --install build/host
+```
+
+Installed examples:
 
 ```text
 /opt/magictool/bin/magictool
+/opt/magictool/bin/magictool_native
 /opt/magictool/bin/magicUI
-/opt/magictool/lib/libmagictool.a
-/opt/magictool/lib/pkgconfig/magictool.pc
+```
+
+Development artifacts:
+
+```text
+/opt/magictool/lib/libmagictool_native.a
+/opt/magictool/lib/libmagictool_qt5.a
+/opt/magictool/lib/pkgconfig/magictool_native.pc
+/opt/magictool/lib/pkgconfig/magictool_qt5.pc
 /opt/magictool/inc/magictool/magicdebug.h
+/opt/magictool/inc/magictool/native/magicdebug.h
 ```
 
 Override the prefix or install subdirectories with standard CMake cache variables:
@@ -149,6 +218,15 @@ cmake -S host -B build/host \
   -DMAGICTOOL_INSTALL_BINDIR=bin \
   -DMAGICTOOL_INSTALL_LIBDIR=lib \
   -DMAGICTOOL_INSTALL_INCLUDEDIR=inc
+```
+
+Build toggles:
+
+```text
+DEBUG_TOOL_BUILD_NATIVE=ON|OFF
+DEBUG_TOOL_BUILD_QT5=ON|OFF
+DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON|OFF
+DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
 ```
 
 ## Example usage
@@ -181,6 +259,8 @@ qDebug() << "Input bitmap:" << inputs;
 
 A buildable CLI example is included at `host/examples/basic_usage.cpp` and builds as `magictool`.
 
+A native CLI example is included at `host/examples/basic_usage_native.cpp` and builds as `magictool_native`.
+
 When `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, the host build also produces `magicUI`, a Qt5 Widgets example application that:
 
 - opens a selected serial port
@@ -203,6 +283,7 @@ Example invocations:
 ./build/host/magictool /dev/ttyACM0 hardware
 ./build/host/magictool /dev/ttyACM0 open
 ./build/host/magictool /dev/ttyACM0 close
+./build/host/magictool_native /dev/ttyACM0 ping 42
 ```
 
 ## Failure modes

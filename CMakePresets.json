@@ -9,7 +9,7 @@
     {
       "name": "host-debug",
       "displayName": "Host Debug",
-      "description": "Configure only the Qt5 host library and host applications in debug mode",
+      "description": "Configure only the host libraries and host applications in debug mode",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/host-debug",
       "cacheVariables": {
@@ -22,7 +22,7 @@
     {
       "name": "host-release",
       "displayName": "Host Release",
-      "description": "Configure only the Qt5 host library and host applications in release mode",
+      "description": "Configure only the host libraries and host applications in release mode",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/host-release",
       "cacheVariables": {

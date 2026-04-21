@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "bsp/board_api.h"
+#include "pico/usb_reset_interface.h"
 #include "tusb.h"
 
 #define USB_VID 0xCafe
@@ -10,6 +11,7 @@
 enum {
     ITF_NUM_CDC = 0,
     ITF_NUM_CDC_DATA,
+    ITF_NUM_RESET,
     ITF_NUM_TOTAL
 };
 
@@ -18,10 +20,12 @@ enum {
     STRID_MANUFACTURER,
     STRID_PRODUCT,
     STRID_SERIAL,
-    STRID_CDC
+    STRID_CDC,
+    STRID_RESET
 };
 
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN)
+#define TUD_RPI_RESET_DESC_LEN 9
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_RPI_RESET_DESC_LEN)
 #define EPNUM_CDC_NOTIF 0x81
 #define EPNUM_CDC_OUT 0x02
 #define EPNUM_CDC_IN 0x82
@@ -52,6 +56,8 @@ static tusb_desc_device_t const kDeviceDescriptor = {
 static uint8_t const kFsConfigurationDescriptor[] = {
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
+    9, TUSB_DESC_INTERFACE, ITF_NUM_RESET, 0, 0, TUSB_CLASS_VENDOR_SPECIFIC, RESET_INTERFACE_SUBCLASS,
+    RESET_INTERFACE_PROTOCOL, STRID_RESET,
 };
 
 static char const *const kStringDescriptors[] = {
@@ -60,6 +66,7 @@ static char const *const kStringDescriptors[] = {
     "GPIO Debug Tool",
     NULL,
     "Debug CDC",
+    "Reset",
 };
 
 static uint16_t g_string_descriptor[32 + 1];

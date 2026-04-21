@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release artifacts
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          path: pico-sdk
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-dev \
+            libstdc++-arm-none-eabi-newlib \
+            qtbase5-dev \
+            libqt5serialport5-dev
+
+      - name: Build host release
+        run: |
+          cmake --preset host-release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/package/magictool-linux-x86_64"
+          cmake --build --preset host-release
+          cmake --install build/host-release
+
+      - name: Build Pico 2 firmware release
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          cmake --preset firmware-pico2-release
+          cmake --build --preset firmware-pico2-release
+
+      - name: Build Pico 2 W firmware release
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          cmake --preset firmware-pico2w-release
+          cmake --build --preset firmware-pico2w-release
+
+      - name: Package artifacts
+        run: |
+          mkdir -p dist
+          tar -C package -czf dist/magictool-linux-x86_64.tar.gz magictool-linux-x86_64
+          cp build/firmware-pico2-release/firmware/magictool_fw_pico2.uf2 dist/
+          cp build/firmware-pico2w-release/firmware/magictool_fw_pico2_w.uf2 dist/
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: magictool-release-artifacts
+          path: dist/*
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* \
+              --title "${GITHUB_REF_NAME}" \
+              --notes "Automated release for ${GITHUB_REF_NAME}."
+          fi

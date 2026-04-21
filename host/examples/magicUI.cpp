@@ -26,6 +26,26 @@
 
 namespace {
 
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR 0
+#endif
+
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR 1
+#endif
+
+#ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION
+#define MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION 0
+#endif
+
+magictool::Version HostExampleVersion() {
+    return magictool::Version{
+        static_cast<quint8>(MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR),
+        static_cast<quint8>(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR),
+        static_cast<quint8>(MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION),
+    };
+}
+
 QString FormatBits(quint8 bits, int width) {
     QString text;
     for (int bit = width - 1; bit >= 0; --bit) {
@@ -151,11 +171,11 @@ public slots:
             emit NotifyMaskUpdated(device_.LastPacket().arg & 0x03);
         });
 
-        quint8 version = 0;
+        magictool::Version version;
         ExecuteCommand(QStringLiteral("GET_VERSION"), [this, &version]() {
-            return device_.GetVersion(&version);
+            return device_.GetFirmwareVersion(&version);
         }, [this, &version]() {
-            emit LogMessage(FormatTimestamped(QStringLiteral("Firmware version: %1").arg(version)));
+            emit LogMessage(FormatTimestamped(QStringLiteral("Firmware version: %1").arg(magictool::FormatVersion(version))));
         });
 
         quint8 hardwareVersion = 0;
@@ -246,11 +266,11 @@ public slots:
     }
 
     void GetVersion() {
-        quint8 version = 0;
+        magictool::Version version;
         ExecuteCommand(QStringLiteral("GET_VERSION"), [this, &version]() {
-            return device_.GetVersion(&version);
+            return device_.GetFirmwareVersion(&version);
         }, [this, &version]() {
-            emit LogMessage(FormatTimestamped(QStringLiteral("Firmware version: %1").arg(version)));
+            emit LogMessage(FormatTimestamped(QStringLiteral("Firmware version: %1").arg(magictool::FormatVersion(version))));
         });
     }
 
@@ -624,6 +644,8 @@ public:
         UpdateInputIndicators(0, 0x03);
         UpdateOutputIndicators(0);
         UpdateNotifyIndicators(0x03);
+        logView_->append(FormatTimestamped(QStringLiteral("Host version: %1").arg(magictool::FormatVersion(HostExampleVersion()))));
+        logView_->append(FormatTimestamped(QStringLiteral("Library version: %1").arg(magictool::FormatVersion(magictool::DebugToolDevice::LibraryVersion()))));
     }
 
     ~MainWindow() override {

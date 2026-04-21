@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(debug_tool LANGUAGES NONE)
+project(magicTool LANGUAGES NONE)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/opt/magictool" CACHE PATH "Install path prefix" FORCE)
@@ -9,8 +9,9 @@ endif()
 include(ExternalProject)
 
 option(DEBUG_TOOL_BUILD_FIRMWARE "Build the Pico firmware" ON)
-option(DEBUG_TOOL_BUILD_HOST "Build the native Qt5 host library" ON)
-option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build debug_tool_qt5 example programs" OFF)
+option(DEBUG_TOOL_BUILD_HOST "Build the host libraries and applications" ON)
+option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build magicTool Qt5 example programs" OFF)
+set(DEBUG_TOOL_NATIVE_BUILD_EXAMPLES ${DEBUG_TOOL_QT5_BUILD_EXAMPLES} CACHE BOOL "Build magicTool native example programs")
 option(PICO_2_W "Build firmware for Raspberry Pi Pico 2 W" OFF)
 set(MAGICTOOL_HW_VERSION "1" CACHE STRING "Hardware revision nibble reported by GET_HARDWARE_VERSION")
 
@@ -30,7 +31,7 @@ if(DEBUG_TOOL_BUILD_FIRMWARE)
 endif()
 
 if(DEBUG_TOOL_BUILD_FIRMWARE)
-    ExternalProject_Add(debug_tool_firmware
+    ExternalProject_Add(magicTool_firmware
         SOURCE_DIR ${CMAKE_SOURCE_DIR}/firmware
         BINARY_DIR ${CMAKE_BINARY_DIR}/firmware
         CMAKE_ARGS
@@ -46,12 +47,13 @@ endif()
 
 if(DEBUG_TOOL_BUILD_HOST)
     if(DEBUG_TOOL_BUILD_FIRMWARE)
-        ExternalProject_Add(debug_tool_host
+        ExternalProject_Add(magicTool_host
             SOURCE_DIR ${CMAKE_SOURCE_DIR}/host
             BINARY_DIR ${CMAKE_BINARY_DIR}/host
             CMAKE_ARGS
                 ${DEBUG_TOOL_COMMON_CMAKE_ARGS}
                 -DDEBUG_TOOL_QT5_BUILD_EXAMPLES:BOOL=${DEBUG_TOOL_QT5_BUILD_EXAMPLES}
+                -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES:BOOL=${DEBUG_TOOL_NATIVE_BUILD_EXAMPLES}
             INSTALL_COMMAND ""
             USES_TERMINAL_CONFIGURE TRUE
             USES_TERMINAL_BUILD TRUE
@@ -60,10 +62,10 @@ if(DEBUG_TOOL_BUILD_HOST)
         install(CODE [[
             execute_process(
                 COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}/host"
-                RESULT_VARIABLE debug_tool_host_install_result
+                RESULT_VARIABLE magicTool_host_install_result
             )
-            if(NOT debug_tool_host_install_result EQUAL 0)
-                message(FATAL_ERROR "Host install failed with exit code ${debug_tool_host_install_result}")
+            if(NOT magicTool_host_install_result EQUAL 0)
+                message(FATAL_ERROR "Host install failed with exit code ${magicTool_host_install_result}")
             endif()
         ]])
     else()

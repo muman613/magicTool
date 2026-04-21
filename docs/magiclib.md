@@ -1,10 +1,24 @@
 # magiclib
 
-`magiclib` in this repository refers to the host-side Qt5 library built from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host). The actual CMake target is `magictool_lib`, and the installed library artifact is `libmagictool.a`.
+`magiclib` in this repository refers to the host-side libraries built from [`host/`](../host). The native POSIX CMake target is `magictool_native_lib`, and the installed library artifact is `libmagictool_native.a`. The Qt5 CMake target is `magictool_qt5_lib`, and the installed library artifact is `libmagictool_qt5.a`.
 
-The main public API is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h), which wraps the Pico firmware's 2-byte USB CDC protocol behind a small synchronous Qt interface.
+Both libraries expose `DebugToolDevice` wrappers around the Pico firmware's 2-byte USB CDC protocol. The native API uses only the C++ standard library plus POSIX serial calls. The Qt5 API wraps `QSerialPort`.
 
-## Public header
+## Public headers
+
+Native:
+
+```cpp
+#include <magictool/native/magicdebug.h>
+```
+
+Namespace:
+
+```cpp
+magictool::native
+```
+
+Qt5:
 
 ```cpp
 #include <magictool/magicdebug.h>
@@ -18,7 +32,9 @@ magictool
 
 ## Installation
 
-Build and install the host library directly from [`host/`](/home/michael/gitroot/pico-dev/debug_tool/host):
+Build and install the host library directly from [`host/`](../host). This
+installs the development artifacts: static libraries, public headers, and
+`pkg-config` files.
 
 ```bash
 cmake -S host -B build/host
@@ -30,8 +46,8 @@ Default requirements:
 
 - CMake 3.16 or newer
 - C++17 compiler
-- Qt5 Core
-- Qt5 SerialPort
+- POSIX serial APIs for the native library
+- Qt5 Core and Qt5 SerialPort for the Qt5 library
 - Qt5 Widgets only if you also build the `magicUI` example
 
 The host project installs to `/opt/magictool` by default. Override that with standard CMake cache variables:
@@ -46,26 +62,51 @@ cmake --build build/host
 cmake --install build/host
 ```
 
-To install the example programs as well:
+To install the host examples as well:
 
 ```bash
-cmake -S host -B build/host -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON
+cmake -S host -B build/host \
+  -DDEBUG_TOOL_QT5_BUILD_EXAMPLES=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
 cmake --build build/host
 cmake --install build/host
 ```
 
-Default install layout:
+Build only the native POSIX library and example, without Qt:
 
-```text
-/opt/magictool/lib/libmagictool.a
-/opt/magictool/lib/pkgconfig/magictool.pc
-/opt/magictool/inc/magictool/magicdebug.h
+```bash
+cmake -S host -B build/host-native-only \
+  -DDEBUG_TOOL_BUILD_QT5=OFF \
+  -DDEBUG_TOOL_BUILD_NATIVE=ON \
+  -DDEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON
+cmake --build build/host-native-only
 ```
 
-With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, installation also adds:
+Host build toggles:
+
+```text
+DEBUG_TOOL_BUILD_NATIVE=ON|OFF
+DEBUG_TOOL_BUILD_QT5=ON|OFF
+DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON|OFF
+DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON|OFF
+```
+
+Installed development artifacts:
+
+```text
+/opt/magictool/lib/libmagictool_native.a
+/opt/magictool/lib/libmagictool_qt5.a
+/opt/magictool/lib/pkgconfig/magictool_native.pc
+/opt/magictool/lib/pkgconfig/magictool_qt5.pc
+/opt/magictool/inc/magictool/magicdebug.h
+/opt/magictool/inc/magictool/native/magicdebug.h
+```
+
+With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON` and `DEBUG_TOOL_NATIVE_BUILD_EXAMPLES=ON`, installation also adds these host examples:
 
 ```text
 /opt/magictool/bin/magictool
+/opt/magictool/bin/magictool_native
 /opt/magictool/bin/magicUI
 ```
 
@@ -76,18 +117,20 @@ With `DEBUG_TOOL_QT5_BUILD_EXAMPLES=ON`, installation also adds:
 Inside the repository, link against the build target directly:
 
 ```cmake
-target_link_libraries(your_app PRIVATE magictool_lib)
+target_link_libraries(your_native_app PRIVATE magictool_native_lib)
+target_link_libraries(your_qt_app PRIVATE magictool_qt5_lib)
 ```
 
-If you consume the library source as a subdirectory, the alias target is also available:
+If you consume the library source as a subdirectory, alias targets are also available:
 
 ```cmake
-target_link_libraries(your_app PRIVATE debug_tool::qt5)
+target_link_libraries(your_native_app PRIVATE magicTool::native)
+target_link_libraries(your_qt_app PRIVATE magicTool::qt5)
 ```
 
 ### pkg-config
 
-Installation writes a `pkg-config` file to `lib/pkgconfig/magictool.pc`. If you install into a non-standard prefix, point `pkg-config` at it first:
+Installation writes `pkg-config` files to `lib/pkgconfig/magictool_native.pc` and `lib/pkgconfig/magictool_qt5.pc`. If you install into a non-standard prefix, point `pkg-config` at it first:
 
 ```bash
 export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -96,25 +139,34 @@ export PKG_CONFIG_PATH=/opt/magictool/lib/pkgconfig:$PKG_CONFIG_PATH
 Inspect the published flags:
 
 ```bash
-pkg-config --cflags --libs magictool
+pkg-config --cflags --libs magictool_native
+pkg-config --cflags --libs magictool_qt5
 ```
 
 Compile and link an application with `pkg-config`:
 
 ```bash
-c++ -std=c++17 example.cpp -o example \
-  $(pkg-config --cflags --libs magictool)
+c++ -std=c++17 native_example.cpp -o native_example \
+  $(pkg-config --cflags --libs magictool_native)
+
+c++ -std=c++17 qt_example.cpp -o qt_example \
+  $(pkg-config --cflags --libs magictool_qt5)
 ```
 
-`magictool.pc` exposes:
+`magictool_native.pc` exposes:
+
+- include flags for `magictool/native/magicdebug.h`
+- `-lmagictool_native`
+
+`magictool_qt5.pc` exposes:
 
 - include flags for `magictool/magicdebug.h`
-- `-lmagictool`
+- `-lmagictool_qt5`
 - private Qt5 dependencies on `Qt5Core` and `Qt5SerialPort`
 
 ## `DebugToolDevice`
 
-The repository does not define a `DeviceToolDevice` class. The device wrapper is [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h), and this is the class application code should use.
+The repository does not define a `DeviceToolDevice` class. The device wrapper is [`DebugToolDevice`](../host/include/magictool/magicdebug.h), and this is the class application code should use.
 
 ### Construction and connection
 
@@ -149,6 +201,7 @@ State queries:
 - `ReadInputs(quint8 *bitsOut = nullptr)`
 - `ReadOutputs(quint8 *bitsOut = nullptr)`
 - `GetVersion(quint8 *versionOut = nullptr)`
+- `GetFirmwareVersion(Version *versionOut = nullptr)`
 - `GetHardwareVersion(quint8 *hardwareVersionOut = nullptr)`
 - `Ping(quint8 value, quint8 *echoedOut = nullptr)`
 
@@ -164,7 +217,9 @@ Notification control:
 - `DisableNotify(quint8 inputIndex)`
 - `DisableAllNotify()`
 
-The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided. `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.). `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
+The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided. `GetFirmwareVersion()` returns firmware major, minor, and revision bytes. `GetVersion()` is retained as a compatibility helper for the firmware major byte. `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.). `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
+
+`Open()` queries the firmware version and requires firmware major/minor to match the library major/minor. Revision is ignored for compatibility.
 
 ### Status and events
 
@@ -180,7 +235,7 @@ bool WaitForEvent(EventPacket *eventOut, int timeoutMs = -1);
 
 `LastResponse()` stores a human-readable summary of the most recent successful reply. `LastErrorString()` stores the most recent transport, timeout, or firmware-reported error.
 
-The firmware may emit asynchronous input-change notifications while the library is waiting for a command response. [`DebugToolDevice`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h) handles that by queueing unrelated packets in an internal pending-event queue. Use `HasPendingEvent()`, `TakePendingEvent()`, or `WaitForEvent()` to consume those notifications.
+The firmware may emit asynchronous input-change notifications while the library is waiting for a command response. [`DebugToolDevice`](../host/include/magictool/magicdebug.h) handles that by queueing unrelated packets in an internal pending-event queue. Use `HasPendingEvent()`, `TakePendingEvent()`, or `WaitForEvent()` to consume those notifications.
 
 ## Example usage
 
@@ -220,7 +275,7 @@ int main(int argc, char *argv[]) {
 
 Buildable CLI example:
 
-- Source: [`host/examples/basic_usage.cpp`](/home/michael/gitroot/pico-dev/debug_tool/host/examples/basic_usage.cpp)
+- Source: [`host/examples/basic_usage.cpp`](../host/examples/basic_usage.cpp)
 - Output binary: `build/host/magictool`
 
 Build it with:
@@ -278,6 +333,7 @@ Host to device:
 - byte 0: upper nibble = command
 - byte 0: lower nibble = selector
 - byte 1: command argument
+- `GET_VERSION` selector `0` returns firmware major, selector `1` returns minor, and selector `2` returns revision
 
 Device to host:
 
@@ -285,7 +341,7 @@ Device to host:
 - byte 0: lower nibble = info
 - byte 1: payload
 
-Relevant protocol enums are declared in [`magicdebug.h`](/home/michael/gitroot/pico-dev/debug_tool/host/include/magictool/magicdebug.h):
+Relevant protocol enums are declared in [`magicdebug.h`](../host/include/magictool/magicdebug.h):
 
 - `CommandCode`
 - `EventType`

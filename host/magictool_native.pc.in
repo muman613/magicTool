@@ -3,9 +3,8 @@ exec_prefix=${prefix}
 libdir=${prefix}/@MAGICTOOL_INSTALL_LIBDIR@
 includedir=${prefix}/@MAGICTOOL_INSTALL_INCLUDEDIR@
 
-Name: magictool_qt5
-Description: Qt5 host library for the magicTool Pico firmware
+Name: magictool_native
+Description: Native POSIX host library for the magicTool Pico firmware
 Version: @PROJECT_VERSION@
-Requires.private: Qt5Core Qt5SerialPort
-Libs: -L${libdir} -lmagictool_qt5
+Libs: -L${libdir} -lmagictool_native
 Cflags: -I${includedir}

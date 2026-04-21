@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  host:
+    name: Host ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type:
+          - debug
+          - release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            qtbase5-dev \
+            libqt5serialport5-dev
+
+      - name: Configure
+        run: cmake --preset host-${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build --preset host-${{ matrix.build_type }}
+
+  firmware:
+    name: Firmware ${{ matrix.board }} ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - pico2
+          - pico2w
+        build_type:
+          - debug
+          - release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          path: pico-sdk
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-dev \
+            libstdc++-arm-none-eabi-newlib
+
+      - name: Configure
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: cmake --preset firmware-${{ matrix.board }}-${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build --preset firmware-${{ matrix.board }}-${{ matrix.build_type }}
