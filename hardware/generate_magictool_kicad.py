@@ -144,8 +144,14 @@ def extract_lib_symbol(library: str, name: str, embedded_name: str) -> str:
 
 
 def lib_symbols() -> str:
+    pico_symbol = extract_lib_symbol("MCU_Module", "RaspberryPi_Pico", "MCU_Module:RaspberryPi_Pico")
+    pico_symbol = pico_symbol.replace(
+        "\t\t\t(pin power_out line\n\t\t\t\t(at 22.86 -22.86 180)",
+        "\t\t\t(pin passive line\n\t\t\t\t(at 22.86 -22.86 180)",
+        1,
+    )
     entries = [
-        extract_lib_symbol("MCU_Module", "RaspberryPi_Pico", "MCU_Module:RaspberryPi_Pico"),
+        pico_symbol,
         extract_lib_symbol("Connector_Generic", "Conn_01x08", "Connector_Generic:Conn_01x08"),
         extract_lib_symbol("Connector_Generic", "Conn_01x02", "Connector_Generic:Conn_01x02"),
     ]
@@ -199,9 +205,18 @@ def junction(x: float, y: float) -> str:
 """
 
 
+def no_connect(x: float, y: float) -> str:
+    return f"""
+\t(no_connect
+\t\t(at {x:g} {y:g})
+\t\t(uuid "{u()}")
+\t)
+"""
+
+
 def sch() -> None:
     pico_x, pico_y = 120.65, 88.9
-    conn_x, conn_y = 50.8, 99.06
+    conn_x, conn_y = 50.8, 86.36
     run_x, run_y = 50.8, 128.27
     pico_left_x = pico_x - 22.86
     pico_nets = [
@@ -212,7 +227,7 @@ def sch() -> None:
         ("IN0", pico_y),
         ("IN1", pico_y + 2.54),
     ]
-    header_pin_y = [conn_y - 8.89 + i * 2.54 for i in range(8)]
+    header_pin_y = [conn_y - 7.62 + i * 2.54 for i in range(8)]
     header_nets = ["OUT0", "OUT1", "OUT2", "OUT3", "IN0", "IN1", "+3V3", "GND"]
 
     parts = [
@@ -249,31 +264,61 @@ def sch() -> None:
     ]
 
     wires = []
-    # Short labeled stubs keep the schematic readable while preserving nets.
-    for name, y in pico_nets:
-        wires += [wire(pico_left_x, y, pico_left_x - 10.16, y), label(name, pico_left_x - 10.16, y)]
 
-    header_pin_x = conn_x - 2.54
-    for name, y in zip(header_nets, header_pin_y):
-        if name in {"+3V3", "GND"}:
-            wires.append(global_label(name, header_pin_x, y, 180))
-        else:
-            wires += [wire(header_pin_x, y, header_pin_x - 10.16, y), label(name, header_pin_x - 10.16, y)]
+    header_pin_x = conn_x - 5.08
+    for (name, pico_net_y), header_y in zip(pico_nets, header_pin_y):
+        # Route J1 visibly to the Pico pins instead of relying on off-page labels.
+        wires += [wire(header_pin_x, header_y, pico_left_x, pico_net_y), label(name, header_pin_x + 2.54, header_y)]
 
     wires += [
-        global_label("+3V3", pico_x + 5.08, pico_y + 41.91, 90),
-        wire(pico_x + 5.08, pico_y + 38.1, pico_x + 5.08, pico_y + 41.91),
-        global_label("GND", pico_x, pico_y - 35.56, 270),
-        wire(pico_x, pico_y - 35.56, pico_x, pico_y - 39.37),
+        global_label("+3V3", header_pin_x, header_pin_y[6], 180),
+        global_label("GND", header_pin_x, header_pin_y[7], 180),
     ]
 
     wires += [
-        wire(pico_left_x, pico_y + 22.86, pico_left_x - 10.16, pico_y + 22.86),
-        label("RUN", pico_left_x - 10.16, pico_y + 22.86),
-        wire(run_x - 2.54, run_y - 1.27, run_x - 12.7, run_y - 1.27),
-        label("RUN", run_x - 12.7, run_y - 1.27),
-        global_label("GND", run_x - 2.54, run_y + 1.27, 180),
+        global_label("+3V3", pico_x + 5.08, pico_y - 41.91, 90),
+        wire(pico_x + 5.08, pico_y - 38.1, pico_x + 5.08, pico_y - 41.91),
+        global_label("GND", pico_x, pico_y + 39.37, 270),
+        wire(pico_x, pico_y + 35.56, pico_x, pico_y + 39.37),
+        global_label("GND", pico_x + 26.67, pico_y + 22.86, 0),
+        wire(pico_x + 22.86, pico_y + 22.86, pico_x + 26.67, pico_y + 22.86),
     ]
+
+    wires += [
+        wire(pico_left_x, pico_y - 22.86, pico_left_x - 10.16, pico_y - 22.86),
+        label("RUN", pico_left_x - 10.16, pico_y - 22.86),
+        wire(run_x - 5.08, run_y, run_x - 12.7, run_y),
+        label("RUN", run_x - 12.7, run_y),
+        global_label("GND", run_x - 5.08, run_y + 2.54, 180),
+    ]
+
+    unused_pico_pins = [
+        (pico_x - 22.86, pico_y - 15.24),  # GPIO0
+        (pico_x - 22.86, pico_y - 12.7),  # GPIO1
+        (pico_x - 22.86, pico_y + 5.08),  # GPIO8
+        (pico_x - 22.86, pico_y + 7.62),  # GPIO9
+        (pico_x - 22.86, pico_y + 10.16),  # GPIO10
+        (pico_x - 22.86, pico_y + 12.7),  # GPIO11
+        (pico_x - 22.86, pico_y + 15.24),  # GPIO12
+        (pico_x - 22.86, pico_y + 17.78),  # GPIO13
+        (pico_x - 22.86, pico_y + 20.32),  # GPIO14
+        (pico_x - 22.86, pico_y + 22.86),  # GPIO15
+        (pico_x + 22.86, pico_y - 12.7),  # GPIO16
+        (pico_x + 22.86, pico_y - 10.16),  # GPIO17
+        (pico_x + 22.86, pico_y - 7.62),  # GPIO18
+        (pico_x + 22.86, pico_y - 5.08),  # GPIO19
+        (pico_x + 22.86, pico_y - 2.54),  # GPIO20
+        (pico_x + 22.86, pico_y),  # GPIO21
+        (pico_x + 22.86, pico_y + 2.54),  # GPIO22
+        (pico_x + 22.86, pico_y + 12.7),  # GPIO26_ADC0
+        (pico_x + 22.86, pico_y + 15.24),  # GPIO27_ADC1
+        (pico_x + 22.86, pico_y + 17.78),  # GPIO28_ADC2
+        (pico_x + 22.86, pico_y + 7.62),  # ADC_VREF
+        (pico_x - 22.86, pico_y - 20.32),  # 3V3_EN
+        (pico_x - 5.08, pico_y - 38.1),  # VSYS
+        (pico_x, pico_y - 38.1),  # VBUS
+    ]
+    wires += [no_connect(x, y) for x, y in unused_pico_pins]
 
     texts = """
 \t(text "J1 maps directly to firmware GPIOs: OUT0..OUT3 = GPIO2..GPIO5, IN0..IN1 = GPIO6..GPIO7. No external input pulldowns are used; firmware enables internal pulldowns."
