@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="760" viewBox="0 0 1120 760" role="img" aria-labelledby="title desc">
+  <title id="title">magicTools Pico 2/Pico 2 W connections</title>
+  <desc id="desc">Connection diagram showing magicTool J1 header pins wired to Raspberry Pi Pico 2 pins. J1 pins 1 through 4 connect to Pico GPIO 2 through GPIO 5. J1 pins 5 and 6 connect to Pico GPIO 6 and GPIO 7. J1 pin 7 connects to Pico 3V3 out and J1 pin 8 connects to Pico ground.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .title { fill: #101820; font: 800 38px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .subtitle { fill: #506070; font: 600 17px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .panel { fill: #ffffff; stroke: #d8dee8; stroke-width: 2; }
+      .header-body { fill: #20242b; stroke: #07090c; stroke-width: 3; }
+      .pico-body { fill: #1f8f83; stroke: #0f554e; stroke-width: 4; }
+      .pico-edge { fill: none; stroke: #a9e5dc; stroke-width: 2; stroke-dasharray: 7 8; opacity: 0.9; }
+      .usb { fill: #d9e2ec; stroke: #7b8794; stroke-width: 2; }
+      .pin { fill: #d8b45a; stroke: #7a6126; stroke-width: 3; }
+      .pin-one { fill: #f3d477; stroke: #fff3bc; stroke-width: 4; }
+      .pin-hole { fill: #4a3515; }
+      .pad { fill: #f1c96b; stroke: #7a6126; stroke-width: 2; }
+      .connected-pad { stroke-width: 4; }
+      .unused-pad { opacity: 0.55; }
+      .wire { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+      .wire-out { stroke: #f08a5d; }
+      .wire-in { stroke: #48a6d8; }
+      .wire-power { stroke: #e14958; }
+      .wire-gnd { stroke: #687282; }
+      .callout { fill: #ffffff; stroke: #d8dee8; stroke-width: 2; }
+      .label { fill: #17202a; font: 800 20px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .small { fill: #475569; font: 600 14px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .tiny { fill: #334155; font: 700 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .pin-num { fill: #ffffff; font: 800 14px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; dominant-baseline: central; }
+      .pico-pin-label { fill: #ffffff; font: 800 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; dominant-baseline: central; }
+      .legend { fill: #334155; font: 700 14px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1120" height="760"/>
+
+  <text class="title" x="62" y="72">magicTools Pico 2/Pico 2 W connections</text>
+  <text class="subtitle" x="64" y="104">Top-view wiring from the magicTool J1 debug I/O header to the Pico 2 / Pico 2 W module.</text>
+
+  <rect class="panel" x="48" y="132" width="1024" height="536" rx="10"/>
+
+  <g id="j1-header" transform="translate(112 204)">
+    <text class="label" x="72" y="-34" text-anchor="middle">J1</text>
+    <text class="small" x="72" y="-12" text-anchor="middle">magicTool I/O</text>
+    <rect class="header-body" x="32" y="0" width="80" height="304" rx="8"/>
+
+    <g>
+      <circle class="pin pin-one" cx="72" cy="22" r="16"/>
+      <circle class="pin-hole" cx="72" cy="22" r="6"/>
+      <text class="pin-num" x="18" y="22">1</text>
+      <text class="label" x="132" y="28">OUT0</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="59" r="15"/>
+      <circle class="pin-hole" cx="72" cy="59" r="6"/>
+      <text class="pin-num" x="18" y="59">2</text>
+      <text class="label" x="132" y="65">OUT1</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="96" r="15"/>
+      <circle class="pin-hole" cx="72" cy="96" r="6"/>
+      <text class="pin-num" x="18" y="96">3</text>
+      <text class="label" x="132" y="102">OUT2</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="133" r="15"/>
+      <circle class="pin-hole" cx="72" cy="133" r="6"/>
+      <text class="pin-num" x="18" y="133">4</text>
+      <text class="label" x="132" y="139">OUT3</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="170" r="15"/>
+      <circle class="pin-hole" cx="72" cy="170" r="6"/>
+      <text class="pin-num" x="18" y="170">5</text>
+      <text class="label" x="132" y="176">IN0</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="207" r="15"/>
+      <circle class="pin-hole" cx="72" cy="207" r="6"/>
+      <text class="pin-num" x="18" y="207">6</text>
+      <text class="label" x="132" y="213">IN1</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="244" r="15"/>
+      <circle class="pin-hole" cx="72" cy="244" r="6"/>
+      <text class="pin-num" x="18" y="244">7</text>
+      <text class="label" x="132" y="250">+3V3</text>
+    </g>
+    <g>
+      <circle class="pin" cx="72" cy="281" r="15"/>
+      <circle class="pin-hole" cx="72" cy="281" r="6"/>
+      <text class="pin-num" x="18" y="281">8</text>
+      <text class="label" x="132" y="287">GND</text>
+    </g>
+  </g>
+
+  <g id="wires">
+    <path class="wire wire-out" d="M224 226 C350 226 500 296 650 296"/>
+    <path class="wire wire-out" d="M224 263 C350 263 500 326 650 326"/>
+    <path class="wire wire-out" d="M224 300 C350 300 500 356 650 356"/>
+    <path class="wire wire-out" d="M224 337 C350 337 500 386 650 386"/>
+    <path class="wire wire-in" d="M224 374 C350 374 500 446 650 446"/>
+    <path class="wire wire-in" d="M224 411 C350 411 500 476 650 476"/>
+    <path class="wire wire-power" d="M224 448 C442 448 780 476 1010 476"/>
+    <path class="wire wire-gnd" d="M224 485 C442 485 780 536 1010 536"/>
+  </g>
+
+  <g id="pico" transform="translate(650 166)">
+    <text class="label" x="180" y="-18" text-anchor="middle">Raspberry Pi Pico 2 / Pico 2 W</text>
+    <rect class="pico-body" x="0" y="0" width="360" height="416" rx="18"/>
+    <rect class="pico-edge" x="18" y="18" width="324" height="380" rx="10"/>
+    <rect class="usb" x="135" y="-12" width="90" height="34" rx="6"/>
+    <text class="small" x="180" y="54" text-anchor="middle" fill="#d6fff8">Pico module pins used by magicTool</text>
+
+    <g id="left-pads">
+      <circle class="pad unused-pad" cx="0" cy="40" r="11"/>
+      <circle class="pad unused-pad" cx="0" cy="70" r="11"/>
+      <circle class="pad connected-pad wire-gnd" cx="0" cy="100" r="11"/>
+      <circle class="pad connected-pad wire-out" cx="0" cy="130" r="11"/>
+      <circle class="pad connected-pad wire-out" cx="0" cy="160" r="11"/>
+      <circle class="pad connected-pad wire-out" cx="0" cy="190" r="11"/>
+      <circle class="pad connected-pad wire-out" cx="0" cy="220" r="11"/>
+      <circle class="pad connected-pad wire-gnd" cx="0" cy="250" r="11"/>
+      <circle class="pad connected-pad wire-in" cx="0" cy="280" r="11"/>
+      <circle class="pad connected-pad wire-in" cx="0" cy="310" r="11"/>
+      <circle class="pad unused-pad" cx="0" cy="340" r="11"/>
+      <circle class="pad unused-pad" cx="0" cy="370" r="11"/>
+    </g>
+
+    <g id="right-pads">
+      <circle class="pad unused-pad" cx="360" cy="40" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="70" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="100" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="130" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="160" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="190" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="220" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="250" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="280" r="11"/>
+      <circle class="pad connected-pad wire-power" cx="360" cy="310" r="11"/>
+      <circle class="pad unused-pad" cx="360" cy="340" r="11"/>
+      <circle class="pad connected-pad wire-gnd" cx="360" cy="370" r="11"/>
+    </g>
+
+    <g id="pico-labels">
+      <text class="pico-pin-label" x="42" y="134">GPIO2</text>
+      <text class="tiny" x="88" y="134">physical pin 4</text>
+      <text class="pico-pin-label" x="42" y="164">GPIO3</text>
+      <text class="tiny" x="88" y="164">physical pin 5</text>
+      <text class="pico-pin-label" x="42" y="194">GPIO4</text>
+      <text class="tiny" x="88" y="194">physical pin 6</text>
+      <text class="pico-pin-label" x="42" y="224">GPIO5</text>
+      <text class="tiny" x="88" y="224">physical pin 7</text>
+      <text class="pico-pin-label" x="42" y="284">GPIO6</text>
+      <text class="tiny" x="88" y="284">physical pin 9</text>
+      <text class="pico-pin-label" x="42" y="314">GPIO7</text>
+      <text class="tiny" x="88" y="314">physical pin 10</text>
+
+      <text class="pico-pin-label" x="286" y="314">3V3 OUT</text>
+      <text class="tiny" x="202" y="314">physical pin 36</text>
+      <text class="pico-pin-label" x="292" y="374">GND</text>
+      <text class="tiny" x="205" y="374">Pico ground</text>
+    </g>
+
+    <text class="tiny" x="20" y="102">GND</text>
+    <text class="tiny" x="20" y="252">GND</text>
+  </g>
+
+  <g id="net-labels">
+    <rect class="callout" x="358" y="194" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="217">J1.1 OUT0 to Pico GPIO2</text>
+    <rect class="callout" x="358" y="236" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="259">J1.2 OUT1 to Pico GPIO3</text>
+    <rect class="callout" x="358" y="278" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="301">J1.3 OUT2 to Pico GPIO4</text>
+    <rect class="callout" x="358" y="320" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="343">J1.4 OUT3 to Pico GPIO5</text>
+    <rect class="callout" x="358" y="362" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="385">J1.5 IN0 to Pico GPIO6</text>
+    <rect class="callout" x="358" y="404" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="427">J1.6 IN1 to Pico GPIO7</text>
+    <rect class="callout" x="358" y="446" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="469">J1.7 +3V3 to Pico 3V3 OUT</text>
+    <rect class="callout" x="358" y="488" width="224" height="36" rx="7"/>
+    <text class="small" x="374" y="511">J1.8 GND to Pico GND</text>
+  </g>
+
+  <g transform="translate(192 704)">
+    <circle cx="0" cy="0" r="7" fill="#f08a5d"/>
+    <text class="legend" x="16" y="5">outputs</text>
+    <circle cx="108" cy="0" r="7" fill="#48a6d8"/>
+    <text class="legend" x="124" y="5">inputs</text>
+    <circle cx="208" cy="0" r="7" fill="#e14958"/>
+    <text class="legend" x="224" y="5">3.3 V</text>
+    <circle cx="304" cy="0" r="7" fill="#687282"/>
+    <text class="legend" x="320" y="5">ground</text>
+    <text class="small" x="474" y="5">Inputs use the firmware's internal pulldowns.</text>
+  </g>
+</svg>

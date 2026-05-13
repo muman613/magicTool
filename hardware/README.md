@@ -13,6 +13,8 @@ This directory contains a generated KiCad 10 project for a small Raspberry Pi Pi
 - Inputs use the firmware's internal pulldowns.
 - `J2`: RUN-to-GND reset header.
 
+See the [magicTool J1 pinout SVG](../docs/magictool-pinout.svg) for a visual reference.
+
 The board assumes USB power and USB data come from the Pico module's onboard connector.
 
 ## Regeneration
