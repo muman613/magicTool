@@ -36,14 +36,41 @@ project(magictool_fw LANGUAGES C CXX ASM)
 
 pico_sdk_init()
 
+option(MAGICTOOL_FETCH_FREERTOS "Fetch Raspberry Pi FreeRTOS-Kernel when FREERTOS_KERNEL_PATH is not set" ON)
+set(FREERTOS_KERNEL_GIT_TAG "4f7299d6ea746b27a9dd19e87af568e34bd65b15" CACHE STRING "Raspberry Pi FreeRTOS-Kernel git tag, branch, or commit to fetch")
+set(_magict_freertos_fetch_enabled "${MAGICTOOL_FETCH_FREERTOS}")
+set(_magict_freertos_git_tag "${FREERTOS_KERNEL_GIT_TAG}")
+
 if(NOT FREERTOS_KERNEL_PATH)
     if(DEFINED ENV{FREERTOS_KERNEL_PATH})
         set(FREERTOS_KERNEL_PATH $ENV{FREERTOS_KERNEL_PATH})
     elseif(EXISTS "/home/michael/gitroot/pico-dev/FreeRTOS-Kernel")
         set(FREERTOS_KERNEL_PATH "/home/michael/gitroot/pico-dev/FreeRTOS-Kernel")
+    elseif(EXISTS "${CMAKE_CURRENT_LIST_DIR}/external/FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2350_ARM_NTZ")
+        set(FREERTOS_KERNEL_PATH "${CMAKE_CURRENT_LIST_DIR}/external/FreeRTOS-Kernel")
+    elseif(_magict_freertos_fetch_enabled)
+        message(STATUS "Fetching Raspberry Pi FreeRTOS-Kernel ${_magict_freertos_git_tag}")
+        FetchContent_Declare(
+            freertos_kernel_fetched
+            GIT_REPOSITORY https://github.com/raspberrypi/FreeRTOS-Kernel.git
+            GIT_TAG ${_magict_freertos_git_tag}
+            GIT_SHALLOW FALSE
+        )
+        FetchContent_Populate(freertos_kernel_fetched)
+        set(FREERTOS_KERNEL_PATH "${freertos_kernel_fetched_SOURCE_DIR}")
     else()
-        message(FATAL_ERROR "Set FREERTOS_KERNEL_PATH to your FreeRTOS-Kernel checkout")
+        message(FATAL_ERROR
+            "Set FREERTOS_KERNEL_PATH to your Raspberry Pi FreeRTOS-Kernel checkout "
+            "or enable -DMAGICTOOL_FETCH_FREERTOS=ON."
+        )
     endif()
+endif()
+
+if(NOT EXISTS "${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/CMakeLists.txt")
+    message(FATAL_ERROR
+        "FreeRTOS-Kernel at '${FREERTOS_KERNEL_PATH}' does not contain the RP2350 ARM non-secure port. "
+        "Use the Raspberry Pi FreeRTOS-Kernel fork or enable -DMAGICTOOL_FETCH_FREERTOS=ON."
+    )
 endif()
 
 set(FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include)

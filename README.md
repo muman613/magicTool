@@ -34,17 +34,18 @@ magicTool/
 - a native build tool supported by CMake such as `make` or `ninja`
 - A working Raspberry Pi Pico SDK checkout
 - `PICO_SDK_PATH` exported in your shell environment
-- A working FreeRTOS-Kernel checkout for firmware builds
-- `FREERTOS_KERNEL_PATH` exported in your shell environment, or a checkout at `/home/michael/gitroot/pico-dev/FreeRTOS-Kernel`
+- FreeRTOS-Kernel is fetched automatically for firmware builds when `FREERTOS_KERNEL_PATH` is not set
+- Optionally, a Raspberry Pi FreeRTOS-Kernel checkout with `FREERTOS_KERNEL_PATH` exported in your shell environment, or a checkout at `/home/michael/gitroot/pico-dev/FreeRTOS-Kernel`
 - An ARM embedded toolchain compatible with the Pico SDK
 - LVGL is required only when building display-enabled firmware, which means `MAGICTOOL_HW_VERSION` greater than `1`. Set `LVGL_PATH` to a local checkout, clone LVGL under `firmware/external/lvgl`, or leave `MAGICTOOL_FETCH_LVGL=ON` to fetch it during configure.
 - Qt5 Core and Qt5 SerialPort development packages for the Qt5 host library
 - Qt5 Widgets development packages for the `magicUI` host application
 
-The firmware presets require `PICO_SDK_PATH` and a FreeRTOS-Kernel checkout:
+The firmware presets require `PICO_SDK_PATH`. FreeRTOS-Kernel is fetched automatically unless `FREERTOS_KERNEL_PATH` points to an existing checkout:
 
 ```bash
 export PICO_SDK_PATH=/path/to/pico-sdk
+# Optional:
 export FREERTOS_KERNEL_PATH=/path/to/FreeRTOS-Kernel
 ```
 
@@ -54,6 +55,9 @@ The host-only presets do not require the Pico SDK or FreeRTOS.
 
 Prefer the CMake presets below. They keep host and firmware outputs in separate
 build directories and avoid mixing the host toolchain with the Pico cross-toolchain.
+
+For a concise Pico 2 W build matrix covering hardware versions 1 and 2, see
+[docs/pico2w-build.md](docs/pico2w-build.md).
 
 For the common cases, use the helper script:
 
@@ -171,7 +175,6 @@ cmake -S . -B build/firmware-pico2-hw2-release \
   -DCMAKE_BUILD_TYPE=Release \
   -DDEBUG_TOOL_BUILD_FIRMWARE=ON \
   -DDEBUG_TOOL_BUILD_HOST=OFF \
-  -DFREERTOS_KERNEL_PATH=/path/to/FreeRTOS-Kernel \
   -DMAGICTOOL_HW_VERSION=2 \
   -DLVGL_PATH=/path/to/lvgl
 cmake --build build/firmware-pico2-hw2-release
@@ -351,11 +354,15 @@ MAGICTOOL_FW_VERSION_MAJOR=0
 MAGICTOOL_FW_VERSION_MINOR=2
 MAGICTOOL_FW_VERSION_REVISION=0
 FREERTOS_KERNEL_PATH=/path/to/FreeRTOS-Kernel
+MAGICTOOL_FETCH_FREERTOS=ON|OFF
+FREERTOS_KERNEL_GIT_TAG=4f7299d6ea746b27a9dd19e87af568e34bd65b15
 LVGL_PATH=/path/to/lvgl
 MAGICTOOL_FETCH_LVGL=ON|OFF
 LVGL_GIT_TAG=latest|vX.Y.Z
 CMAKE_BUILD_TYPE=Debug|Release
 ```
+
+FreeRTOS support uses the Raspberry Pi FreeRTOS-Kernel fork because the firmware needs its RP2350 ARM non-secure port. Set `FREERTOS_KERNEL_PATH` to use a local checkout, or leave `MAGICTOOL_FETCH_FREERTOS=ON` to fetch the commit selected by `FREERTOS_KERNEL_GIT_TAG`.
 
 Display support is controlled by `MAGICTOOL_HW_VERSION`: revisions `0` and `1` do not compile or link LVGL/display code; revisions greater than `1` compile the ST7735 driver, LVGL UI, and display task. `LVGL_PATH`, `MAGICTOOL_FETCH_LVGL`, and `LVGL_GIT_TAG` are used only for display-enabled firmware.
 
@@ -385,8 +392,7 @@ cmake -S . -B build/manual-firmware-pico2w-release \
   -DCMAKE_BUILD_TYPE=Release \
   -DDEBUG_TOOL_BUILD_FIRMWARE=ON \
   -DDEBUG_TOOL_BUILD_HOST=OFF \
-  -DPICO_2_W=ON \
-  -DFREERTOS_KERNEL_PATH=/path/to/FreeRTOS-Kernel
+  -DPICO_2_W=ON
 cmake --build build/manual-firmware-pico2w-release
 ```
 
