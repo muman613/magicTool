@@ -1,4 +1,17 @@
 .codex
 build/*
 firmware/*
+!firmware/
+!firmware/.gitignore
+!firmware/CMakeLists.txt
+!firmware/main.cpp
 !firmware/reset_interface.c
+!firmware/tusb_config.h
+!firmware/usb_descriptors.c
+!firmware/include/
+!firmware/include/*.h
+!firmware/src/
+!firmware/src/display/
+!firmware/src/display/*.c
+!firmware/src/ui/
+!firmware/src/ui/*.c

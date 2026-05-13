@@ -217,7 +217,7 @@ Notification control:
 - `DisableNotify(quint8 inputIndex)`
 - `DisableAllNotify()`
 
-The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided. `GetFirmwareVersion()` returns firmware major, minor, and revision bytes. `GetVersion()` is retained as a compatibility helper for the firmware major byte. `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.). `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
+The library validates output indexes `0..3` and input indexes `0..1` before sending a packet. Query methods decode the reply packet and copy the returned value into the optional output pointer when provided. `GetFirmwareVersion()` returns firmware major, minor, and revision bytes. `GetVersion()` is retained as a compatibility helper for the firmware major byte. `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.). Firmware hardware revisions greater than `1` may include an onboard display that mirrors D0-D3 output state; this does not change the host protocol. `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 
 `Open()` queries the firmware version and requires firmware major/minor to match the library major/minor. Revision is ignored for compatibility.
 

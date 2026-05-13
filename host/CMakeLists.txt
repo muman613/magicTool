@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(magicTool VERSION 0.1.0 LANGUAGES CXX)
+project(magicTool VERSION 0.2.0 LANGUAGES CXX)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/opt/magictool" CACHE PATH "Install path prefix" FORCE)
@@ -20,7 +20,7 @@ option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build magictool example programs" OFF)
 set(DEBUG_TOOL_NATIVE_BUILD_EXAMPLES ${DEBUG_TOOL_QT5_BUILD_EXAMPLES} CACHE BOOL "Build native magictool example programs")
 
 set(MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR "0" CACHE STRING "Host example major version")
-set(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR "1" CACHE STRING "Host example minor version")
+set(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR "2" CACHE STRING "Host example minor version")
 set(MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION "0" CACHE STRING "Host example revision version")
 
 set(MAGICTOOL_LIBRARY_VERSION_DEFINES

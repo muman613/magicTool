@@ -105,6 +105,7 @@ Behavior notes:
 - `GetFirmwareVersion()` returns firmware major, minor, and revision bytes.
 - `GetVersion()` is retained as a compatibility helper for the firmware major byte.
 - `GetHardwareVersion()` returns one packed byte: high nibble hardware type (`0` unknown, `1` pico2, `2` pico2_w), low nibble hardware revision (`0` unknown, `1` v1, `2` v2, etc.).
+- Firmware hardware revisions greater than `1` may include an onboard display. That display mirrors D0-D3 output state and does not change the host protocol.
 - `EnableNotify()` and `DisableNotify()` address inputs `0..1`.
 - `OpenTool()` and `CloseTool()` send the firmware `OPEN` and `CLOSE` commands, which control the onboard indicator LED.
 - `LastResponse()` is a human-readable summary of the most recent reply packet.
