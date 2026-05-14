@@ -6,30 +6,32 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
     cat <<'USAGE'
 Usage:
-  ./build.sh [target] [build-target] [type]
+  ./build.sh [target] [build-target] [hw-version] [type]
 
 Arguments:
   target        pico2 | pico2w        default: pico2
   build-target  host | fw | all       default: all
+  hw-version    1 | 2                 default: 1
   type          debug | release       default: debug
 
 Examples:
   ./build.sh
-  ./build.sh pico2w fw release
-  ./build.sh pico2 host debug
+  ./build.sh pico2w fw 2 release
+  ./build.sh pico2 host 1 debug
 USAGE
 }
 
 target="${1:-pico2}"
 build_target="${2:-all}"
-build_type="${3:-debug}"
+hw_version="${3:-1}"
+build_type="${4:-debug}"
 
 if [[ "${target}" == "-h" || "${target}" == "--help" ]]; then
     usage
     exit 0
 fi
 
-if [[ $# -gt 3 ]]; then
+if [[ $# -gt 4 ]]; then
     usage >&2
     exit 2
 fi
@@ -49,6 +51,16 @@ case "${build_target}" in
         ;;
     *)
         echo "Invalid build target: ${build_target}" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
+
+case "${hw_version}" in
+    1 | 2)
+        ;;
+    *)
+        echo "Invalid hardware version: ${hw_version}" >&2
         usage >&2
         exit 2
         ;;
@@ -74,8 +86,16 @@ fi
 
 cd "${script_dir}"
 
+configure_args=("--preset" "${preset}")
+if [[ "${build_target}" != "host" ]]; then
+    configure_args+=("-DMAGICTOOL_HW_VERSION=${hw_version}")
+fi
+
 echo "Configuring preset: ${preset}"
-cmake --preset "${preset}"
+if [[ "${build_target}" != "host" ]]; then
+    echo "Hardware version: ${hw_version}"
+fi
+cmake "${configure_args[@]}"
 
 echo "Building preset: ${preset}"
 cmake --build --preset "${preset}"

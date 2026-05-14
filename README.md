@@ -62,10 +62,11 @@ For a concise Pico 2 W build matrix covering hardware versions 1 and 2, see
 For the common cases, use the helper script:
 
 ```bash
-./build.sh [pico2|pico2w] [host|fw|all] [debug|release]
+./build.sh [pico2|pico2w] [host|fw|all] [1|2] [debug|release]
 ```
 
-All arguments are optional. The defaults are `pico2`, `all`, and `debug`:
+All arguments are optional. The defaults are `pico2`, `all`, hardware version
+`1`, and `debug`:
 
 ```bash
 ./build.sh
@@ -74,8 +75,8 @@ All arguments are optional. The defaults are `pico2`, `all`, and `debug`:
 Examples:
 
 ```bash
-./build.sh pico2w fw release
-./build.sh pico2 host debug
+./build.sh pico2w fw 2 release
+./build.sh pico2 host 1 debug
 ```
 
 ### Host Applications
