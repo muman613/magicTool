@@ -91,15 +91,15 @@ if(DEBUG_TOOL_BUILD_HOST)
             USES_TERMINAL_BUILD TRUE
         )
 
-        install(CODE [[
+        install(CODE "
             execute_process(
-                COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}/host"
+                COMMAND \"${CMAKE_COMMAND}\" --install \"${CMAKE_BINARY_DIR}/host\"
                 RESULT_VARIABLE magicTool_host_install_result
             )
             if(NOT magicTool_host_install_result EQUAL 0)
-                message(FATAL_ERROR "Host install failed with exit code ${magicTool_host_install_result}")
+                message(FATAL_ERROR \"Host install failed with exit code \${magicTool_host_install_result}\")
             endif()
-        ]])
+        ")
     else()
         add_subdirectory(host)
     endif()
