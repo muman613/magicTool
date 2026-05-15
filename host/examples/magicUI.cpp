@@ -1,12 +1,11 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <vector>
 
 #include <QApplication>
 #include <QComboBox>
 #include <QDateTime>
-#include <QDir>
-#include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -16,6 +15,7 @@
 #include <QMainWindow>
 #include <QMetaObject>
 #include <QPushButton>
+#include <QStringList>
 #include <QSpinBox>
 #include <QTextEdit>
 #include <QThread>
@@ -23,6 +23,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "magictool/device_config.h"
 #include "magictool/magicdebug.h"
 
 namespace {
@@ -38,6 +39,8 @@ namespace {
 #ifndef MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION
 #define MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION 0
 #endif
+
+constexpr int kDeviceNameRole = Qt::UserRole + 1;
 
 magictool::Version HostExampleVersion() {
     return magictool::Version{
@@ -415,12 +418,14 @@ public:
         portCombo_->setEditable(true);
         portCombo_->setMinimumContentsLength(18);
         auto *refreshButton = new QPushButton(QStringLiteral("Refresh"), connectionBox);
+        setDefaultButton_ = new QPushButton(QStringLiteral("Set Default"), connectionBox);
         connectButton_ = new QPushButton(QStringLiteral("Connect"), connectionBox);
         disconnectButton_ = new QPushButton(QStringLiteral("Disconnect"), connectionBox);
         connectionStatusLabel_ = new QLabel(QStringLiteral("Disconnected"), connectionBox);
         connectionLayout->addWidget(new QLabel(QStringLiteral("Port:"), connectionBox));
         connectionLayout->addWidget(portCombo_, 1);
         connectionLayout->addWidget(refreshButton);
+        connectionLayout->addWidget(setDefaultButton_);
         connectionLayout->addWidget(connectButton_);
         connectionLayout->addWidget(disconnectButton_);
         connectionLayout->addWidget(connectionStatusLabel_);
@@ -633,6 +638,9 @@ public:
         connect(refreshButton, &QPushButton::clicked, this, [this]() {
             RefreshPorts();
         });
+        connect(setDefaultButton_, &QPushButton::clicked, this, [this]() {
+            SetSelectedDefaultDevice();
+        });
         connect(connectButton_, &QPushButton::clicked, this, [this]() {
             InvokeWorker([this]() { worker_->ConnectToPort(SelectedPortName()); });
         });
@@ -661,28 +669,39 @@ private:
         portCombo_->clear();
         hasDevicePorts_ = false;
 
-        const QDir serialById(QStringLiteral("/dev/serial/by-id"));
-        const QFileInfoList entries = serialById.entryInfoList(
-            QDir::Files | QDir::System | QDir::NoDotAndDotDot,
-            QDir::Name);
+        magictool::DeviceConfig config;
+        std::string configError;
+        const bool configLoaded = magictool::LoadDeviceConfig(&config, &configError);
+        if (!configLoaded) {
+            logView_->append(FormatTimestamped(QStringLiteral("Config error: %1").arg(QString::fromStdString(configError))));
+        }
 
-        for (const QFileInfo &entry : entries) {
-            const QString idName = entry.fileName();
-            if (!idName.startsWith(QStringLiteral("usb-magictool"), Qt::CaseInsensitive)) {
+        QStringList addedPorts;
+        if (configLoaded) {
+            for (const magictool::ConfiguredDevice &device : config.devices) {
+                const QString name = QString::fromStdString(device.name);
+                const QString portPath = QString::fromStdString(device.port);
+                const QString label = device.name == config.defaultName
+                    ? QStringLiteral("%1 (default) - %2").arg(name, portPath)
+                    : QStringLiteral("%1 - %2").arg(name, portPath);
+                portCombo_->addItem(label, portPath);
+                portCombo_->setItemData(portCombo_->count() - 1, name, kDeviceNameRole);
+                addedPorts.push_back(portPath);
+            }
+        }
+
+        const std::vector<magictool::ScannedDevicePort> scannedPorts = magictool::ScanMagicToolSerialPorts();
+        for (const magictool::ScannedDevicePort &port : scannedPorts) {
+            const QString portPath = QString::fromStdString(port.path);
+            if (addedPorts.contains(portPath)) {
                 continue;
             }
 
-            QString portPath = entry.canonicalFilePath();
-            if (portPath.isEmpty()) {
-                portPath = entry.symLinkTarget();
-            }
-            if (portPath.isEmpty()) {
-                continue;
-            }
-
-            const QString label = QStringLiteral("%1 (%2)")
-                .arg(SerialFromByIdName(idName), QFileInfo(portPath).fileName());
+            const QString idName = QString::fromStdString(port.idName);
+            const QString label = QStringLiteral("%1 - %2")
+                .arg(SerialFromByIdName(idName), portPath);
             portCombo_->addItem(label, portPath);
+            addedPorts.push_back(portPath);
         }
 
         hasDevicePorts_ = portCombo_->count() > 0;
@@ -693,6 +712,15 @@ private:
         const int matchIndex = portCombo_->findData(current);
         if (matchIndex >= 0) {
             portCombo_->setCurrentIndex(matchIndex);
+        } else if (configLoaded && !config.defaultName.empty()) {
+            const int defaultIndex = portCombo_->findData(
+                QString::fromStdString(config.defaultName),
+                kDeviceNameRole);
+            if (defaultIndex >= 0) {
+                portCombo_->setCurrentIndex(defaultIndex);
+            } else if (hasDevicePorts_) {
+                portCombo_->setCurrentIndex(0);
+            }
         } else if (hasDevicePorts_) {
             portCombo_->setCurrentIndex(0);
         }
@@ -711,6 +739,7 @@ private:
                 : QStringLiteral("No magictool devices found")));
         connectButton_->setEnabled(!connected && hasDevicePorts_);
         disconnectButton_->setEnabled(connected);
+        setDefaultButton_->setEnabled(!connected && !SelectedDeviceName().isEmpty());
         portCombo_->setEnabled(!connected && hasDevicePorts_);
         for (QWidget *widget : managedWidgets_) {
             widget->setEnabled(connected);
@@ -746,10 +775,38 @@ private:
 
     QString SelectedPortName() const {
         const QVariant data = portCombo_->currentData();
+        if (data.isValid() && !data.toString().isEmpty()) {
+            return data.toString();
+        }
+
+        const QString typedPath = portCombo_->currentText().trimmed();
+        return typedPath.startsWith(QLatin1Char('/')) ? typedPath : QString();
+    }
+
+    QString SelectedDeviceName() const {
+        const QVariant data = portCombo_->currentData(kDeviceNameRole);
         return data.isValid() ? data.toString() : QString();
     }
 
+    void SetSelectedDefaultDevice() {
+        const QString deviceName = SelectedDeviceName();
+        if (deviceName.isEmpty()) {
+            logView_->append(FormatTimestamped(QStringLiteral("Select a configured device before setting the default")));
+            return;
+        }
+
+        std::string error;
+        if (!magictool::SetDefaultDeviceName(deviceName.toStdString(), &error)) {
+            logView_->append(FormatTimestamped(QStringLiteral("Config error: %1").arg(QString::fromStdString(error))));
+            return;
+        }
+
+        logView_->append(FormatTimestamped(QStringLiteral("Default device set to %1").arg(deviceName)));
+        RefreshPorts();
+    }
+
     QComboBox *portCombo_ = nullptr;
+    QPushButton *setDefaultButton_ = nullptr;
     QPushButton *connectButton_ = nullptr;
     QPushButton *disconnectButton_ = nullptr;
     QLabel *connectionStatusLabel_ = nullptr;

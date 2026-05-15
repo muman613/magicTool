@@ -125,6 +125,7 @@ cmake --build build/host
 This produces:
 
 ```text
+build/host/libmagictool_config.a
 build/host/libmagictool_native.a
 build/host/libmagictool_qt5.a
 ```
@@ -142,6 +143,7 @@ cmake --build build/host-native-only
 This produces:
 
 ```text
+build/host-native-only/libmagictool_config.a
 build/host-native-only/libmagictool_native.a
 build/host-native-only/magictool_native
 ```
@@ -150,10 +152,60 @@ Dependencies:
 
 - CMake 3.16 or newer
 - POSIX serial APIs for the native library
+- nlohmann/json for command-line device configuration support
 - Qt5 Core
 - Qt5 SerialPort
 - Qt5 Widgets for the `magicUI` example
 - A C++17 compiler
+
+## Named Devices
+
+The command-line examples and `magicUI` can resolve stable named devices from:
+
+```text
+~/.config/magictool/config.json
+```
+
+Example:
+
+```json
+{
+  "devices": [
+    {
+      "name": "jupiter",
+      "port": "/dev/serial/by-id/usb-magictool_w_GPIO_Debug_Tool_02BCADA0D3FF27B7-if00"
+    },
+    {
+      "name": "saturn",
+      "port": "/dev/serial/by-id/usb-magictool_w_GPIO_Debug_Tool_C4AB2A3F0CA42F85-if00"
+    }
+  ],
+  "default": "saturn"
+}
+```
+
+Use `/dev/serial/by-id/...` paths in the config so multiple attached devices do
+not depend on changing `/dev/ttyACM*` enumeration order.
+
+Both command-line examples support these forms:
+
+```bash
+magictool scan
+magictool --set-default saturn
+magictool read-inputs
+magictool --device jupiter set 0
+magictool --port /dev/serial/by-id/usb-magictool_w_GPIO_Debug_Tool_C4AB2A3F0CA42F85-if00 read-outputs
+magictool jupiter hardware
+```
+
+`magictool_native` accepts the same arguments. If no device or port is provided,
+the configured `default` device is used. The `scan` command lists attached
+`/dev/serial/by-id/*` entries whose names contain
+`usb-magictool_w_GPIO_Debug_Tool`.
+
+`magicUI` lists configured devices first, selects the configured default when
+available, and also shows scanned but unconfigured attached devices. The
+`Set Default` button updates the config default for the selected named device.
 
 ## Install Examples And Dev Artifacts
 
@@ -205,8 +257,10 @@ Development artifacts:
 ```text
 /opt/magictool/lib/libmagictool_native.a
 /opt/magictool/lib/libmagictool_qt5.a
+/opt/magictool/lib/libmagictool_config.a
 /opt/magictool/lib/pkgconfig/magictool_native.pc
 /opt/magictool/lib/pkgconfig/magictool_qt5.pc
+/opt/magictool/inc/magictool/device_config.h
 /opt/magictool/inc/magictool/magicdebug.h
 /opt/magictool/inc/magictool/native/magicdebug.h
 ```

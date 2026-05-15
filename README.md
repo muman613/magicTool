@@ -4,38 +4,58 @@
 
 ## Hardware Versions
 
-The firmware supports two magicTool hardware versions:
+The firmware supports two magicTool hardware version values:
 
-- Ver 0.1.0 is the basic configuration. It provides the USB serial command interface, D0-D3 GPIO outputs, and D0-D1 GPIO inputs without the display stack.
-- Ver 0.2.0 adds support for a 128x128 LCD display. Display-enabled builds compile the ST7735 driver, LVGL UI, and display task so the onboard screen can mirror the D0-D3 output states.
+- Hardware v1 is the basic configuration. It provides the USB serial command interface, D0-D3 GPIO outputs, and D0-D1 GPIO inputs without the display stack.
+- Hardware v2 adds support for a 128x128 LCD display. Display-enabled builds compile the ST7735 driver, LVGL UI, and display task so the onboard screen can mirror the D0-D3 output states.
 
-Select the target hardware with `MAGICTOOL_HW_VERSION`: use `1` for Ver 0.1.0 and `2` for Ver 0.2.0.
+Select the target hardware with `MAGICTOOL_HW_VERSION`: use `1` for hardware v1 and `2` for hardware v2.
 
 ## Repository Layout
 
-This repository is organized so the current Pico firmware lives in its own subdirectory and the project can grow without mixing host-side code, tests, and embedded firmware sources.
+This repository is organized so the current Pico firmware lives in its own subdirectory and the project can grow without mixing host-side code, hardware assets, and embedded firmware sources.
 
 ```text
 magicTool/
 ├── CMakeLists.txt
+├── CMakePresets.json
 ├── docs/
+│   ├── magiclib.md
+│   ├── pico2w-build.md
+│   └── pinout references
 ├── README.md
+├── build.sh
 ├── firmware/
 │   ├── CMakeLists.txt
 │   ├── include/
 │   ├── main.cpp
-│   └── src/
+│   ├── src/
+│   ├── reset_interface.c
+│   ├── tusb_config.h
+│   └── usb_descriptors.c
+├── hardware/
+│   ├── README.md
+│   ├── generate_magictool_kicad.py
+│   └── magictool.kicad_*
 ├── host/
 │   ├── CMakeLists.txt
+│   ├── README.md
+│   ├── examples/
 │   ├── include/
-│   └── src/
-└── tests/
+│   ├── src/
+│   └── *.pc.in
+├── resources/
+│   ├── icons/
+│   └── launchers/
+├── magicTool_firmware.code-workspace
+└── magicTool_host.code-workspace
 ```
 
-- `firmware/` contains the Pico SDK and FreeRTOS based firmware build, plus optional LVGL display support for Ver 0.2.0 hardware.
+- `firmware/` contains the Pico SDK and FreeRTOS based firmware build, plus optional LVGL display support for hardware v2.
 - `host/` contains native POSIX and Qt5 libraries for talking to the Pico CDC serial device.
-- `docs/` contains project documentation for the host library and usage examples.
-- `tests/` is reserved for unit tests and other automated validation.
+- `hardware/` contains the generated KiCad carrier board project and the script used to regenerate it.
+- `docs/` contains project documentation, build notes, pinout references, and host library usage examples.
+- `resources/` contains desktop integration assets for the host UI.
 
 ## Requirements
 
@@ -46,7 +66,7 @@ magicTool/
 - FreeRTOS-Kernel is fetched automatically for firmware builds when `FREERTOS_KERNEL_PATH` is not set
 - Optionally, a Raspberry Pi FreeRTOS-Kernel checkout with `FREERTOS_KERNEL_PATH` exported in your shell environment, or a checkout at `/home/michael/gitroot/pico-dev/FreeRTOS-Kernel`
 - An ARM embedded toolchain compatible with the Pico SDK
-- LVGL is required only when building display-enabled firmware for Ver 0.2.0 hardware, which means `MAGICTOOL_HW_VERSION=2`. Set `LVGL_PATH` to a local checkout, clone LVGL under `firmware/external/lvgl`, or leave `MAGICTOOL_FETCH_LVGL=ON` to fetch it during configure.
+- LVGL is required only when building display-enabled firmware for hardware v2, which means `MAGICTOOL_HW_VERSION=2`. Set `LVGL_PATH` to a local checkout, clone LVGL under `firmware/external/lvgl`, or leave `MAGICTOOL_FETCH_LVGL=ON` to fetch it during configure.
 - Qt5 Core and Qt5 SerialPort development packages for the Qt5 host library
 - Qt5 Widgets development packages for the `magicUI` host application
 
@@ -65,7 +85,7 @@ The host-only presets do not require the Pico SDK or FreeRTOS.
 Prefer the CMake presets below. They keep host and firmware outputs in separate
 build directories and avoid mixing the host toolchain with the Pico cross-toolchain.
 
-For a concise Pico 2 W build matrix covering hardware versions 1 and 2, see
+For a concise Pico 2 W build matrix covering hardware v1 and v2, see
 [docs/pico2w-build.md](docs/pico2w-build.md).
 
 For the common cases, use the helper script:
@@ -139,7 +159,7 @@ build/host-release/host/libmagictool_qt5.a
 
 ### Firmware Only
 
-The default firmware hardware version is `MAGICTOOL_HW_VERSION=1`, which targets Ver 0.1.0 and builds the FreeRTOS USB/GPIO firmware without the display stack. Set `MAGICTOOL_HW_VERSION=2` to target Ver 0.2.0 and enable 128x128 ST7735/LVGL display support.
+The default firmware hardware version is `MAGICTOOL_HW_VERSION=1`, which targets hardware v1 and builds the FreeRTOS USB/GPIO firmware without the display stack. Set `MAGICTOOL_HW_VERSION=2` to target hardware v2 and enable 128x128 ST7735/LVGL display support.
 
 Build Pico 2 Debug:
 
@@ -178,7 +198,7 @@ build/firmware-pico2w-debug/firmware/magictool_fw_pico2_w.uf2
 build/firmware-pico2w-release/firmware/magictool_fw_pico2_w.uf2
 ```
 
-Build a display-enabled Pico 2 firmware manually by selecting hardware version `2` and providing LVGL if you do not want CMake to fetch it:
+Build a display-enabled Pico 2 firmware manually by selecting hardware v2 and providing LVGL if you do not want CMake to fetch it:
 
 ```bash
 cmake -S . -B build/firmware-pico2-hw2-release \
@@ -374,7 +394,7 @@ CMAKE_BUILD_TYPE=Debug|Release
 
 FreeRTOS support uses the Raspberry Pi FreeRTOS-Kernel fork because the firmware needs its RP2350 ARM non-secure port. Set `FREERTOS_KERNEL_PATH` to use a local checkout, or leave `MAGICTOOL_FETCH_FREERTOS=ON` to fetch the commit selected by `FREERTOS_KERNEL_GIT_TAG`.
 
-Display support is controlled by `MAGICTOOL_HW_VERSION`: version `1` targets Ver 0.1.0 and does not compile or link LVGL/display code; version `2` targets Ver 0.2.0 and compiles the ST7735 driver, LVGL UI, and display task. `LVGL_PATH`, `MAGICTOOL_FETCH_LVGL`, and `LVGL_GIT_TAG` are used only for display-enabled firmware.
+Display support is controlled by `MAGICTOOL_HW_VERSION`: hardware version `1` targets hardware v1 and does not compile or link LVGL/display code; hardware version `2` targets hardware v2 and compiles the ST7735 driver, LVGL UI, and display task. `LVGL_PATH`, `MAGICTOOL_FETCH_LVGL`, and `LVGL_GIT_TAG` are used only for display-enabled firmware.
 
 For example, a manual host Release build is:
 
@@ -429,7 +449,7 @@ The firmware runs on FreeRTOS and exposes a USB CDC interface with a compact 2-b
 - Host command packets are 2 bytes: upper nibble = command, lower nibble = selector, second byte = argument
 - Firmware replies are 2-byte event packets and may also include asynchronous input-change notifications
 - Firmware versions use three bytes: major, minor, revision. `GET_VERSION` selector `0` returns major, selector `1` returns minor, and selector `2` returns revision.
-- Ver 0.2.0 hardware adds a 128x128 display task. The display shows `magicTool v0.2.0` and four centered virtual LEDs labeled D0-D3. The virtual LEDs mirror output GPIO states for D0-D3.
+- Hardware v2 adds a 128x128 display task. The display shows the firmware version and four centered virtual LEDs labeled D0-D3. The virtual LEDs mirror output GPIO states for D0-D3.
 
 The current firmware supports output control, input/output bitmap reads, notification enable/disable, firmware version query, hardware version query, and ping.
 
