@@ -11,6 +11,7 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QMainWindow>
 #include <QMetaObject>
@@ -769,7 +770,9 @@ private:
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
+    app.setWindowIcon(QIcon(QStringLiteral(":/icons/magicUI.png")));
     MainWindow window;
+    window.setWindowIcon(app.windowIcon());
     window.show();
     return app.exec();
 }

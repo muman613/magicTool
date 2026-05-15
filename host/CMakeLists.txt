@@ -146,6 +146,7 @@ if(DEBUG_TOOL_BUILD_QT5)
 
         add_executable(magicUI
             examples/magicUI.cpp
+            examples/magicUI.qrc
         )
 
         target_link_libraries(magicUI
@@ -161,6 +162,7 @@ if(DEBUG_TOOL_BUILD_QT5)
 
         set_target_properties(magicUI PROPERTIES
             AUTOMOC ON
+            AUTORCC ON
         )
 
         install(TARGETS magictool_example magicUI
