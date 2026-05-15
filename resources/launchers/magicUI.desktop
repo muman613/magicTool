@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Magic Tool
+Comment=Launch Magic Tool GUI
+Exec=@MAGICTOOL_DESKTOP_EXEC@
+Icon=@MAGICTOOL_DESKTOP_ICON@
+Terminal=false
+Categories=Utility;Development;
+StartupNotify=true

@@ -9,6 +9,9 @@ endif()
 set(MAGICTOOL_INSTALL_BINDIR "bin" CACHE STRING "Executable install directory")
 set(MAGICTOOL_INSTALL_LIBDIR "lib" CACHE STRING "Library install directory")
 set(MAGICTOOL_INSTALL_INCLUDEDIR "inc" CACHE STRING "Header install directory")
+set(MAGICTOOL_INSTALL_RESOURCEDIR "resources" CACHE STRING "Resource install directory")
+set(MAGICTOOL_INSTALL_ICONDIR "${MAGICTOOL_INSTALL_RESOURCEDIR}/icons" CACHE STRING "Icon resource install directory")
+set(MAGICTOOL_INSTALL_APPLICATIONSDIR "/usr/share/applications" CACHE STRING "Desktop application install directory")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -162,6 +165,24 @@ if(DEBUG_TOOL_BUILD_QT5)
 
         install(TARGETS magictool_example magicUI
             RUNTIME DESTINATION ${MAGICTOOL_INSTALL_BINDIR}
+        )
+
+        set(MAGICTOOL_RESOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../resources")
+        set(MAGICTOOL_DESKTOP_EXEC "${CMAKE_INSTALL_PREFIX}/${MAGICTOOL_INSTALL_BINDIR}/magicUI")
+        set(MAGICTOOL_DESKTOP_ICON "${CMAKE_INSTALL_PREFIX}/${MAGICTOOL_INSTALL_ICONDIR}/magicUI.png")
+
+        configure_file(
+            ${MAGICTOOL_RESOURCE_ROOT}/launchers/magicUI.desktop
+            ${CMAKE_CURRENT_BINARY_DIR}/magicUI.desktop
+            @ONLY
+        )
+
+        install(FILES ${MAGICTOOL_RESOURCE_ROOT}/icons/magicUI.png
+            DESTINATION ${MAGICTOOL_INSTALL_ICONDIR}
+        )
+
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/magicUI.desktop
+            DESTINATION ${MAGICTOOL_INSTALL_APPLICATIONSDIR}
         )
     endif()
 endif()
