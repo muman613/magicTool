@@ -13,6 +13,7 @@
 #include "task.h"
 #include "tusb.h"
 #if MAGICTOOL_ENABLE_DISPLAY
+#include "display_st7735.h"
 #include "ui_lvgl.h"
 #endif
 
@@ -101,7 +102,7 @@ static QueueHandle_t g_evt_queue;
 volatile uint8_t g_output_state = 0;
 volatile uint8_t g_notify_enable = 0x03;
 volatile bool g_indicator_led_available = false;
-volatile bool g_indicator_led_state = false;
+volatile bool g_tool_open = false;
 
 static inline uint8_t get_cmd_code(uint8_t header) {
     return (header >> 4) & 0x0F;
@@ -239,15 +240,45 @@ static void board_indicator_led_set(bool led_on) {
 #endif
 }
 
+static void set_display_open(bool open) {
+#if MAGICTOOL_ENABLE_DISPLAY
+#if MAGICTOOL_ENABLE_LVGL
+    ui_lvgl_set_display_open(open);
+#else
+    if (open) {
+        st7735_set_display_on(true);
+        st7735_set_backlight(true);
+    } else {
+        st7735_set_backlight(false);
+        st7735_set_display_on(true);
+        st7735_fill(0x0000u);
+    }
+#endif
+#else
+    (void)open;
+#endif
+}
+
+static void init_display_blank() {
+#if MAGICTOOL_ENABLE_DISPLAY
+    st7735_set_backlight(false);
+    st7735_init(nullptr);
+    st7735_set_display_on(true);
+    st7735_fill(0x0000u);
+#endif
+}
+
 static void set_indicator_led(uint8_t cmd, bool led_on) {
+    set_display_open(led_on);
+
     if (!g_indicator_led_available) {
         enqueue_error(cmd, ERR_LED_UNAVAILABLE);
         return;
     }
 
     board_indicator_led_set(led_on);
-    g_indicator_led_state = led_on;
-    enqueue_ack(cmd, g_indicator_led_state ? 1 : 0);
+    g_tool_open = led_on;
+    enqueue_ack(cmd, g_tool_open ? 1 : 0);
 }
 
 static void process_command(const CommandPacket &pkt) {
@@ -345,6 +376,7 @@ static void process_command(const CommandPacket &pkt) {
             set_indicator_led(cmd, true);
             break;
         case CMD_CLOSE:
+            apply_output_state_bitmap(0);
             set_indicator_led(cmd, false);
             break;
         case CMD_GET_HARDWARE_VERSION:
@@ -467,8 +499,8 @@ static void init_indicator_led() {
     g_indicator_led_available = board_indicator_led_init();
     if (g_indicator_led_available) {
         board_indicator_led_set(false);
-        g_indicator_led_state = false;
     }
+    g_tool_open = false;
 }
 
 extern "C" void vApplicationMallocFailedHook(void) {
@@ -487,6 +519,9 @@ extern "C" void vApplicationStackOverflowHook(TaskHandle_t task, char *task_name
 
 int main() {
     board_init();
+#if MAGICTOOL_ENABLE_DISPLAY
+    init_display_blank();
+#endif
     init_indicator_led();
     init_gpio();
 

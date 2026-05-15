@@ -14,6 +14,8 @@
 #define LED_SIZE 22
 
 static volatile uint8_t s_output_state;
+static volatile bool s_display_open_requested;
+static bool s_display_open_current;
 static lv_obj_t *s_leds[MAGICTOOL_OUTPUT_COUNT];
 static lv_obj_t *s_labels[MAGICTOOL_OUTPUT_COUNT];
 
@@ -50,10 +52,10 @@ static void flush_cb(lv_disp_drv_t *display, const lv_area_t *area, lv_color_t *
 
 static void set_led_style(lv_obj_t *led, bool on)
 {
-    lv_obj_set_style_bg_color(led, lv_color_hex(on ? 0x38e06f : 0x19222d), 0);
-    lv_obj_set_style_border_color(led, lv_color_hex(on ? 0xc8ffd9 : 0x4d5a66), 0);
+    lv_obj_set_style_bg_color(led, lv_color_hex(on ? 0xffffff : 0x0b2d57), 0);
+    lv_obj_set_style_border_color(led, lv_color_hex(on ? 0xffffff : 0x315a86), 0);
     lv_obj_set_style_shadow_width(led, on ? 10 : 0, 0);
-    lv_obj_set_style_shadow_color(led, lv_color_hex(0x38e06f), 0);
+    lv_obj_set_style_shadow_color(led, lv_color_hex(0xffffff), 0);
 }
 
 static void refresh_leds(lv_timer_t *timer)
@@ -64,7 +66,7 @@ static void refresh_leds(lv_timer_t *timer)
     for (uint8_t i = 0; i < MAGICTOOL_OUTPUT_COUNT; ++i) {
         const bool on = ((state >> i) & 0x1u) != 0;
         set_led_style(s_leds[i], on);
-        lv_obj_set_style_text_color(s_labels[i], lv_color_hex(on ? 0xf4fff7 : 0x98a4ad), 0);
+        lv_obj_set_style_text_color(s_labels[i], lv_color_hex(0xffd84d), 0);
     }
 }
 
@@ -75,8 +77,8 @@ static void create_ui(void)
 #else
     lv_obj_t *screen = lv_scr_act();
 #endif
-    lv_obj_set_style_bg_color(screen, lv_color_hex(0x071018), 0);
-    lv_obj_set_style_text_color(screen, lv_color_hex(0xf4f7fb), 0);
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x061b3a), 0);
+    lv_obj_set_style_text_color(screen, lv_color_hex(0xffd84d), 0);
 
     lv_obj_t *title = lv_label_create(screen);
     lv_label_set_text(title, "magicTool v0.2.0");
@@ -112,6 +114,35 @@ static void create_ui(void)
 
     refresh_leds(NULL);
     lv_timer_create(refresh_leds, 50, NULL);
+}
+
+static void invalidate_screen(void)
+{
+#if LVGL_VERSION_MAJOR >= 9
+    lv_obj_invalidate(lv_screen_active());
+#else
+    lv_obj_invalidate(lv_scr_act());
+#endif
+}
+
+static void apply_display_open_request(void)
+{
+    const bool requested = s_display_open_requested;
+    if (requested == s_display_open_current) {
+        return;
+    }
+
+    if (requested) {
+        st7735_set_display_on(true);
+        invalidate_screen();
+        s_display_open_current = true;
+        return;
+    }
+
+    st7735_set_backlight(false);
+    st7735_set_display_on(true);
+    st7735_fill(0x0000u);
+    s_display_open_current = false;
 }
 
 static void ui_lvgl_init(void)
@@ -151,6 +182,10 @@ static void ui_lvgl_init(void)
 #endif
 
     create_ui();
+    st7735_set_backlight(false);
+    st7735_set_display_on(true);
+    st7735_fill(0x0000u);
+    s_display_open_current = false;
 }
 
 void ui_lvgl_task(void *params)
@@ -168,9 +203,18 @@ void ui_lvgl_task(void *params)
             last_tick_us += (uint64_t)elapsed_ms * 1000u;
         }
 
-        lv_timer_handler();
+        apply_display_open_request();
+        if (s_display_open_current) {
+            lv_timer_handler();
+            st7735_set_backlight(true);
+        }
         vTaskDelay(pdMS_TO_TICKS(5));
     }
+}
+
+void ui_lvgl_set_display_open(bool open)
+{
+    s_display_open_requested = open;
 }
 
 void ui_lvgl_set_output_state(uint8_t output_state)
@@ -181,6 +225,7 @@ void ui_lvgl_set_output_state(uint8_t output_state)
 #else
 
 void ui_lvgl_task(void *params) { (void)params; }
+void ui_lvgl_set_display_open(bool open) { (void)open; }
 void ui_lvgl_set_output_state(uint8_t output_state) { (void)output_state; }
 
 #endif

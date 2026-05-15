@@ -98,4 +98,34 @@ fi
 cmake "${configure_args[@]}"
 
 echo "Building preset: ${preset}"
-cmake --build --preset "${preset}"
+build_jobs="$(nproc)"
+cmake --build --preset "${preset}" -- -j "${build_jobs}"
+
+echo
+echo "Build complete."
+
+if [[ "${build_target}" != "host" ]]; then
+    if [[ "${target}" == "pico2w" ]]; then
+        uf2_path="build/${preset}/firmware/magictool_fw_pico2_w.uf2"
+    else
+        uf2_path="build/${preset}/firmware/magictool_fw_pico2.uf2"
+    fi
+
+    echo
+    echo "Flash the firmware image:"
+    echo "  picotool load -f --vid 0xcafe --pid 0x4000 ${uf2_path}"
+    echo
+    echo "Or mount the Pico in BOOTSEL mode and copy:"
+    echo "  cp ${uf2_path} /media/\$USER/RPI-RP2/"
+fi
+
+if [[ "${build_target}" != "fw" ]]; then
+    echo
+    echo "Install host tools and development artifacts:"
+    echo "  sudo cmake --install build/${preset}"
+    echo
+    echo "For a user-writable install prefix, reconfigure first with:"
+    echo "  cmake --preset ${preset} -DCMAKE_INSTALL_PREFIX=\"\$HOME/.local/magictool\""
+    echo "  cmake --build --preset ${preset} -- -j \$(nproc)"
+    echo "  cmake --install build/${preset}"
+fi

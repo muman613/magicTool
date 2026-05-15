@@ -14,6 +14,7 @@
 #define ST7735_CASET 0x2Au
 #define ST7735_RASET 0x2Bu
 #define ST7735_RAMWR 0x2Cu
+#define ST7735_DISPOFF 0x28u
 #define ST7735_DISPON 0x29u
 #define ST7735_INVOFF 0x20u
 
@@ -31,6 +32,27 @@ static st7735_config_t s_config = {
     .rotation = 0,
     .rgb_order = false,
 };
+static bool s_backlight_on = false;
+static bool s_backlight_initialized = false;
+
+static uint st7735_backlight_level(bool on)
+{
+    const uint on_level = MAGICTOOL_ST7735_BL_ON_LEVEL ? 1u : 0u;
+    return on ? on_level : (on_level ^ 1u);
+}
+
+static void st7735_init_backlight_pin(void)
+{
+    if (s_backlight_initialized) {
+        return;
+    }
+
+    gpio_init(MAGICTOOL_ST7735_PIN_BL);
+    gpio_set_dir(MAGICTOOL_ST7735_PIN_BL, GPIO_OUT);
+    gpio_put(MAGICTOOL_ST7735_PIN_BL, st7735_backlight_level(s_backlight_on));
+
+    s_backlight_initialized = true;
+}
 
 static void st7735_select(void)
 {
@@ -119,13 +141,11 @@ void st7735_init(const st7735_config_t *config)
     gpio_init(MAGICTOOL_ST7735_PIN_CS);
     gpio_init(MAGICTOOL_ST7735_PIN_DC);
     gpio_init(MAGICTOOL_ST7735_PIN_RST);
-    gpio_init(MAGICTOOL_ST7735_PIN_BL);
     gpio_set_dir(MAGICTOOL_ST7735_PIN_CS, GPIO_OUT);
     gpio_set_dir(MAGICTOOL_ST7735_PIN_DC, GPIO_OUT);
     gpio_set_dir(MAGICTOOL_ST7735_PIN_RST, GPIO_OUT);
-    gpio_set_dir(MAGICTOOL_ST7735_PIN_BL, GPIO_OUT);
+    st7735_init_backlight_pin();
     st7735_deselect();
-    gpio_put(MAGICTOOL_ST7735_PIN_BL, 1);
 
     gpio_put(MAGICTOOL_ST7735_PIN_RST, 0);
     sleep_ms(20);
@@ -150,6 +170,25 @@ void st7735_init(const st7735_config_t *config)
     sleep_ms(120);
 
     st7735_fill(0x0000u);
+}
+
+void st7735_set_backlight(bool on)
+{
+    s_backlight_on = on;
+    st7735_init_backlight_pin();
+    gpio_put(MAGICTOOL_ST7735_PIN_BL, st7735_backlight_level(on));
+}
+
+void st7735_set_display_on(bool on)
+{
+    if (on) {
+        st7735_cmd(ST7735_SLPOUT);
+        sleep_ms(120);
+        st7735_cmd(ST7735_DISPON);
+        sleep_ms(20);
+    } else {
+        st7735_cmd(ST7735_DISPOFF);
+    }
 }
 
 void st7735_fill(uint16_t color565)
