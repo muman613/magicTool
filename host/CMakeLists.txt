@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(magicTool VERSION 0.1.0 LANGUAGES CXX)
+project(magicTool VERSION 0.2.0 LANGUAGES CXX)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "/opt/magictool" CACHE PATH "Install path prefix" FORCE)
@@ -9,6 +9,9 @@ endif()
 set(MAGICTOOL_INSTALL_BINDIR "bin" CACHE STRING "Executable install directory")
 set(MAGICTOOL_INSTALL_LIBDIR "lib" CACHE STRING "Library install directory")
 set(MAGICTOOL_INSTALL_INCLUDEDIR "inc" CACHE STRING "Header install directory")
+set(MAGICTOOL_INSTALL_RESOURCEDIR "resources" CACHE STRING "Resource install directory")
+set(MAGICTOOL_INSTALL_ICONDIR "${MAGICTOOL_INSTALL_RESOURCEDIR}/icons" CACHE STRING "Icon resource install directory")
+set(MAGICTOOL_INSTALL_APPLICATIONSDIR "/usr/share/applications" CACHE STRING "Desktop application install directory")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,7 +23,7 @@ option(DEBUG_TOOL_QT5_BUILD_EXAMPLES "Build magictool example programs" OFF)
 set(DEBUG_TOOL_NATIVE_BUILD_EXAMPLES ${DEBUG_TOOL_QT5_BUILD_EXAMPLES} CACHE BOOL "Build native magictool example programs")
 
 set(MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR "0" CACHE STRING "Host example major version")
-set(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR "1" CACHE STRING "Host example minor version")
+set(MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR "2" CACHE STRING "Host example minor version")
 set(MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION "0" CACHE STRING "Host example revision version")
 
 set(MAGICTOOL_LIBRARY_VERSION_DEFINES
@@ -33,6 +36,34 @@ set(MAGICTOOL_HOST_EXAMPLE_VERSION_DEFINES
     MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR=${MAGICTOOL_HOST_EXAMPLE_VERSION_MAJOR}
     MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR=${MAGICTOOL_HOST_EXAMPLE_VERSION_MINOR}
     MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION=${MAGICTOOL_HOST_EXAMPLE_VERSION_REVISION}
+)
+
+find_path(NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp)
+if(NOT NLOHMANN_JSON_INCLUDE_DIR)
+    message(FATAL_ERROR "nlohmann/json.hpp is required for magictool device configuration support")
+endif()
+
+add_library(magictool_config_lib STATIC
+    src/device_config.cpp
+)
+
+add_library(magicTool::config ALIAS magictool_config_lib)
+
+set_target_properties(magictool_config_lib PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    OUTPUT_NAME magictool_config
+)
+
+target_include_directories(magictool_config_lib
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${MAGICTOOL_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${NLOHMANN_JSON_INCLUDE_DIR}
+)
+
+install(TARGETS magictool_config_lib
+    ARCHIVE DESTINATION ${MAGICTOOL_INSTALL_LIBDIR}
 )
 
 if(DEBUG_TOOL_BUILD_NATIVE)
@@ -129,6 +160,7 @@ if(DEBUG_TOOL_BUILD_QT5)
         target_link_libraries(magictool_example
             PRIVATE
                 magictool_qt5_lib
+                magictool_config_lib
         )
 
         target_compile_definitions(magictool_example
@@ -143,11 +175,13 @@ if(DEBUG_TOOL_BUILD_QT5)
 
         add_executable(magicUI
             examples/magicUI.cpp
+            examples/magicUI.qrc
         )
 
         target_link_libraries(magicUI
             PRIVATE
                 magictool_qt5_lib
+                magictool_config_lib
                 Qt5::Widgets
         )
 
@@ -158,10 +192,29 @@ if(DEBUG_TOOL_BUILD_QT5)
 
         set_target_properties(magicUI PROPERTIES
             AUTOMOC ON
+            AUTORCC ON
         )
 
         install(TARGETS magictool_example magicUI
             RUNTIME DESTINATION ${MAGICTOOL_INSTALL_BINDIR}
+        )
+
+        set(MAGICTOOL_RESOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../resources")
+        set(MAGICTOOL_DESKTOP_EXEC "${CMAKE_INSTALL_PREFIX}/${MAGICTOOL_INSTALL_BINDIR}/magicUI")
+        set(MAGICTOOL_DESKTOP_ICON "${CMAKE_INSTALL_PREFIX}/${MAGICTOOL_INSTALL_ICONDIR}/magicUI.png")
+
+        configure_file(
+            ${MAGICTOOL_RESOURCE_ROOT}/launchers/magicUI.desktop
+            ${CMAKE_CURRENT_BINARY_DIR}/magicUI.desktop
+            @ONLY
+        )
+
+        install(FILES ${MAGICTOOL_RESOURCE_ROOT}/icons/magicUI.png
+            DESTINATION ${MAGICTOOL_INSTALL_ICONDIR}
+        )
+
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/magicUI.desktop
+            DESTINATION ${MAGICTOOL_INSTALL_APPLICATIONSDIR}
         )
     endif()
 endif()
@@ -174,6 +227,7 @@ if(DEBUG_TOOL_BUILD_NATIVE AND DEBUG_TOOL_NATIVE_BUILD_EXAMPLES)
     target_link_libraries(magictool_native
         PRIVATE
             magictool_native_lib
+            magictool_config_lib
     )
 
     target_compile_definitions(magictool_native

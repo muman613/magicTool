@@ -27,27 +27,75 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             cmake \
+            pkg-config \
             qtbase5-dev \
             libqt5serialport5-dev
 
       - name: Configure
-        run: cmake --preset host-${{ matrix.build_type }}
+        run: cmake --preset host-${{ matrix.build_type }} -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/magictool-host-${{ matrix.build_type }}"
 
       - name: Build
         run: cmake --build --preset host-${{ matrix.build_type }}
 
+      - name: Install
+        run: cmake --install build/host-${{ matrix.build_type }}
+
+      - name: Verify pkg-config
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/magictool-host-${{ matrix.build_type }}/lib/pkgconfig
+        run: |
+          pkg-config --modversion magictool_native
+          pkg-config --cflags --libs magictool_native
+          pkg-config --modversion magictool_qt5
+          pkg-config --cflags --libs magictool_qt5
+
   firmware:
-    name: Firmware ${{ matrix.board }} ${{ matrix.build_type }}
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        board:
-          - pico2
-          - pico2w
-        build_type:
-          - debug
-          - release
+        include:
+          - name: Firmware Pico 2 Debug
+            preset: firmware-pico2-debug
+            hw_version: ""
+            dependency_mode: fetch
+          - name: Firmware Pico 2 Release
+            preset: firmware-pico2-release
+            hw_version: ""
+            dependency_mode: fetch
+          - name: Firmware Pico 2 W HW1 Debug Fetch Deps
+            preset: firmware-pico2w-debug
+            hw_version: 1
+            dependency_mode: fetch
+          - name: Firmware Pico 2 W HW1 Release Fetch Deps
+            preset: firmware-pico2w-release
+            hw_version: 1
+            dependency_mode: fetch
+          - name: Firmware Pico 2 W HW1 Debug Local Deps
+            preset: firmware-pico2w-debug
+            hw_version: 1
+            dependency_mode: local
+          - name: Firmware Pico 2 W HW1 Release Local Deps
+            preset: firmware-pico2w-release
+            hw_version: 1
+            dependency_mode: local
+          - name: Firmware Pico 2 W HW2 Debug Fetch Deps
+            preset: firmware-pico2w-debug
+            hw_version: 2
+            dependency_mode: fetch
+          - name: Firmware Pico 2 W HW2 Release Fetch Deps
+            preset: firmware-pico2w-release
+            hw_version: 2
+            dependency_mode: fetch
+          - name: Firmware Pico 2 W HW2 Debug Local Deps
+            preset: firmware-pico2w-debug
+            hw_version: 2
+            dependency_mode: local
+          - name: Firmware Pico 2 W HW2 Release Local Deps
+            preset: firmware-pico2w-release
+            hw_version: 2
+            dependency_mode: local
 
     steps:
       - name: Checkout
@@ -71,10 +119,151 @@ jobs:
             libstdc++-arm-none-eabi-dev \
             libstdc++-arm-none-eabi-newlib
 
+      - name: Checkout local FreeRTOS
+        if: matrix.dependency_mode == 'local'
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/FreeRTOS-Kernel
+          ref: 4f7299d6ea746b27a9dd19e87af568e34bd65b15
+          path: FreeRTOS-Kernel
+
+      - name: Checkout local LVGL
+        if: matrix.dependency_mode == 'local' && matrix.hw_version == 2
+        run: |
+          LVGL_TAG="$(git ls-remote --tags --refs https://github.com/lvgl/lvgl.git 'refs/tags/v[0-9]*' \
+            | sed -E 's#.*refs/tags/##' \
+            | sort -V \
+            | tail -n 1)"
+          git clone --depth 1 --branch "${LVGL_TAG}" https://github.com/lvgl/lvgl.git lvgl
+
       - name: Configure
         env:
           PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
-        run: cmake --preset firmware-${{ matrix.board }}-${{ matrix.build_type }}
+        run: |
+          args=()
+          if [[ -n "${{ matrix.hw_version }}" ]]; then
+            args+=("-DMAGICTOOL_HW_VERSION=${{ matrix.hw_version }}")
+          fi
+          if [[ "${{ matrix.dependency_mode }}" == "local" ]]; then
+            args+=("-DFREERTOS_KERNEL_PATH=${GITHUB_WORKSPACE}/FreeRTOS-Kernel")
+            if [[ "${{ matrix.hw_version }}" == "2" ]]; then
+              args+=("-DLVGL_PATH=${GITHUB_WORKSPACE}/lvgl")
+            fi
+          fi
+          cmake --preset "${{ matrix.preset }}" "${args[@]}"
 
       - name: Build
-        run: cmake --build --preset firmware-${{ matrix.board }}-${{ matrix.build_type }}
+        run: cmake --build --preset "${{ matrix.preset }}"
+
+  all:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: All Pico 2 W HW1 Debug Fetch Deps
+            preset: all-pico2w-debug
+            hw_version: 1
+            dependency_mode: fetch
+          - name: All Pico 2 W HW1 Release Fetch Deps
+            preset: all-pico2w-release
+            hw_version: 1
+            dependency_mode: fetch
+          - name: All Pico 2 W HW1 Debug Local Deps
+            preset: all-pico2w-debug
+            hw_version: 1
+            dependency_mode: local
+          - name: All Pico 2 W HW1 Release Local Deps
+            preset: all-pico2w-release
+            hw_version: 1
+            dependency_mode: local
+          - name: All Pico 2 W HW2 Debug Fetch Deps
+            preset: all-pico2w-debug
+            hw_version: 2
+            dependency_mode: fetch
+          - name: All Pico 2 W HW2 Release Fetch Deps
+            preset: all-pico2w-release
+            hw_version: 2
+            dependency_mode: fetch
+          - name: All Pico 2 W HW2 Debug Local Deps
+            preset: all-pico2w-debug
+            hw_version: 2
+            dependency_mode: local
+          - name: All Pico 2 W HW2 Release Local Deps
+            preset: all-pico2w-release
+            hw_version: 2
+            dependency_mode: local
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          path: pico-sdk
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-dev \
+            libstdc++-arm-none-eabi-newlib \
+            pkg-config \
+            qtbase5-dev \
+            libqt5serialport5-dev
+
+      - name: Checkout local FreeRTOS
+        if: matrix.dependency_mode == 'local'
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/FreeRTOS-Kernel
+          ref: 4f7299d6ea746b27a9dd19e87af568e34bd65b15
+          path: FreeRTOS-Kernel
+
+      - name: Checkout local LVGL
+        if: matrix.dependency_mode == 'local' && matrix.hw_version == 2
+        run: |
+          LVGL_TAG="$(git ls-remote --tags --refs https://github.com/lvgl/lvgl.git 'refs/tags/v[0-9]*' \
+            | sed -E 's#.*refs/tags/##' \
+            | sort -V \
+            | tail -n 1)"
+          git clone --depth 1 --branch "${LVGL_TAG}" https://github.com/lvgl/lvgl.git lvgl
+
+      - name: Configure
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          args=(
+            "-DMAGICTOOL_HW_VERSION=${{ matrix.hw_version }}"
+            "-DCMAKE_INSTALL_PREFIX=${RUNNER_TEMP}/magictool-${{ matrix.preset }}-${{ matrix.dependency_mode }}"
+          )
+          if [[ "${{ matrix.dependency_mode }}" == "local" ]]; then
+            args+=("-DFREERTOS_KERNEL_PATH=${GITHUB_WORKSPACE}/FreeRTOS-Kernel")
+            if [[ "${{ matrix.hw_version }}" == "2" ]]; then
+              args+=("-DLVGL_PATH=${GITHUB_WORKSPACE}/lvgl")
+            fi
+          fi
+          cmake --preset "${{ matrix.preset }}" "${args[@]}"
+
+      - name: Build
+        run: cmake --build --preset "${{ matrix.preset }}"
+
+      - name: Install host artifacts
+        run: cmake --install "build/${{ matrix.preset }}"
+
+      - name: Verify pkg-config
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/magictool-${{ matrix.preset }}-${{ matrix.dependency_mode }}/lib/pkgconfig
+        run: |
+          pkg-config --modversion magictool_native
+          pkg-config --cflags --libs magictool_native
+          pkg-config --modversion magictool_qt5
+          pkg-config --cflags --libs magictool_qt5

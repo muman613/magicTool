@@ -1,37 +1,29 @@
 #include <stdint.h>
 
+#include "FreeRTOS.h"
 #include "bsp/board.h"
+#include "board_config.h"
 #include "hardware/gpio.h"
 #include "pico/binary_info.h"
 #if defined(PICO_DEBUG_TARGET_PICO2_W)
 #include "pico/cyw43_arch.h"
 #endif
-#include "pico/multicore.h"
 #include "pico/stdlib.h"
-#include "pico/util/queue.h"
+#include "queue.h"
+#include "task.h"
 #include "tusb.h"
+#if MAGICTOOL_ENABLE_DISPLAY
+#include "display_st7735.h"
+#include "ui_lvgl.h"
+#endif
 
-// ------------------------------------------------------------
-// Configuration
-// ------------------------------------------------------------
-
-static constexpr uint OUT_PIN_COUNT = 4;
-static constexpr uint IN_PIN_COUNT = 2;
-
-// Final agreed mapping for Pico 2 W
-static constexpr uint OUTPUT_PINS[OUT_PIN_COUNT] = {2, 3, 4, 5};
-static constexpr uint INPUT_PINS[IN_PIN_COUNT] = {6, 7};
-
-// Pulse timing for synchronous PULSE command
+static constexpr uint OUT_PIN_COUNT = MAGICTOOL_OUTPUT_COUNT;
+static constexpr uint IN_PIN_COUNT = MAGICTOOL_INPUT_COUNT;
 static constexpr uint32_t PULSE_HIGH_US = 10;
 static constexpr uint32_t PULSE_LOW_US = 10;
-
-// Queue sizes
-static constexpr uint CMD_QUEUE_LEN = 32;
-static constexpr uint EVT_QUEUE_LEN = 64;
-
-// Input polling interval on worker core
 static constexpr uint32_t INPUT_POLL_US = 100;
+static constexpr UBaseType_t CORE0_AFFINITY = (1u << 0u);
+static constexpr UBaseType_t CORE1_AFFINITY = (1u << 1u);
 
 #ifndef MAGICTOOL_HW_VERSION
 #define MAGICTOOL_HW_VERSION 1
@@ -42,7 +34,7 @@ static constexpr uint32_t INPUT_POLL_US = 100;
 #endif
 
 #ifndef MAGICTOOL_FW_VERSION_MINOR
-#define MAGICTOOL_FW_VERSION_MINOR 1
+#define MAGICTOOL_FW_VERSION_MINOR 2
 #endif
 
 #ifndef MAGICTOOL_FW_VERSION_REVISION
@@ -58,21 +50,6 @@ bi_decl(bi_2pins_with_names(6, "IN0 pulldown", 7, "IN1 pulldown"));
 #if defined(PICO_DEFAULT_LED_PIN)
 bi_decl(bi_1pin_with_name(PICO_DEFAULT_LED_PIN, "Indicator LED"));
 #endif
-
-// ------------------------------------------------------------
-// Protocol
-// ------------------------------------------------------------
-
-// Host -> Pico, 2 bytes:
-//   byte0: upper nibble = command, lower nibble = selector
-//   byte1: argument
-//   GET_VERSION selector 0 = major, 1 = minor, 2 = revision
-//   OPEN  = 0xC0 0x00, turns the onboard indicator LED on
-//   CLOSE = 0xD0 0x00, turns the onboard indicator LED off
-//
-// Pico -> Host, 2 bytes:
-//   byte0: upper nibble = event type, lower nibble = info
-//   byte1: argument/payload
 
 enum Command : uint8_t {
     CMD_NOP = 0x0,
@@ -119,25 +96,13 @@ struct EventPacket {
     uint8_t arg;
 };
 
-// ------------------------------------------------------------
-// Shared state between cores
-// ------------------------------------------------------------
+static QueueHandle_t g_cmd_queue;
+static QueueHandle_t g_evt_queue;
 
-static queue_t g_cmd_queue;
-static queue_t g_evt_queue;
-
-// Bit0..bit3 correspond to outputs 0..3
 volatile uint8_t g_output_state = 0;
-
-// Bit0..bit1 correspond to inputs 0..1
-volatile uint8_t g_notify_enable = 0x03;  // both enabled by default
-
+volatile uint8_t g_notify_enable = 0x03;
 volatile bool g_indicator_led_available = false;
-volatile bool g_indicator_led_state = false;
-
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
+volatile bool g_tool_open = false;
 
 static inline uint8_t get_cmd_code(uint8_t header) {
     return (header >> 4) & 0x0F;
@@ -159,6 +124,13 @@ static inline bool valid_input_index(uint8_t idx) {
     return idx < IN_PIN_COUNT;
 }
 
+static inline void publish_output_state(uint8_t state) {
+    g_output_state = state & 0x0F;
+#if MAGICTOOL_ENABLE_DISPLAY
+    ui_lvgl_set_output_state(g_output_state);
+#endif
+}
+
 static inline uint8_t hardware_version_byte() {
 #if defined(PICO_DEBUG_TARGET_PICO2_W)
     constexpr uint8_t hw_type = HW_TYPE_PICO2_W;
@@ -173,7 +145,7 @@ static inline uint8_t hardware_version_byte() {
 static uint8_t read_inputs_bitmap() {
     uint8_t bits = 0;
     for (uint8_t i = 0; i < IN_PIN_COUNT; ++i) {
-        if (gpio_get(INPUT_PINS[i])) {
+        if (gpio_get(k_magictool_input_pins[i])) {
             bits |= (1u << i);
         }
     }
@@ -183,15 +155,14 @@ static uint8_t read_inputs_bitmap() {
 static void apply_output_state_bitmap(uint8_t mask) {
     mask &= 0x0F;
     for (uint8_t i = 0; i < OUT_PIN_COUNT; ++i) {
-        const bool level = (mask >> i) & 0x1;
-        gpio_put(OUTPUT_PINS[i], level);
+        gpio_put(k_magictool_output_pins[i], (mask >> i) & 0x1u);
     }
-    g_output_state = mask;
+    publish_output_state(mask);
 }
 
 static void set_output_index(uint8_t idx, bool level) {
     const uint8_t bit = (1u << idx);
-    gpio_put(OUTPUT_PINS[idx], level);
+    gpio_put(k_magictool_output_pins[idx], level);
 
     uint8_t state = g_output_state;
     if (level) {
@@ -199,7 +170,7 @@ static void set_output_index(uint8_t idx, bool level) {
     } else {
         state &= ~bit;
     }
-    g_output_state = state;
+    publish_output_state(state);
 }
 
 static void toggle_output_index(uint8_t idx) {
@@ -207,14 +178,14 @@ static void toggle_output_index(uint8_t idx) {
     uint8_t state = g_output_state;
     const bool new_level = ((state & bit) == 0);
 
-    gpio_put(OUTPUT_PINS[idx], new_level);
+    gpio_put(k_magictool_output_pins[idx], new_level);
 
     if (new_level) {
         state |= bit;
     } else {
         state &= ~bit;
     }
-    g_output_state = state;
+    publish_output_state(state);
 }
 
 static void pulse_output_index(uint8_t idx, uint8_t count) {
@@ -223,23 +194,20 @@ static void pulse_output_index(uint8_t idx, uint8_t count) {
     }
 
     for (uint8_t i = 0; i < count; ++i) {
-        gpio_put(OUTPUT_PINS[idx], 1);
+        gpio_put(k_magictool_output_pins[idx], 1);
+        publish_output_state(g_output_state | (1u << idx));
         sleep_us(PULSE_HIGH_US);
-        gpio_put(OUTPUT_PINS[idx], 0);
+        gpio_put(k_magictool_output_pins[idx], 0);
+        publish_output_state(g_output_state & ~(1u << idx));
         sleep_us(PULSE_LOW_US);
     }
-
-    // Pulse command leaves pin low
-    uint8_t state = g_output_state;
-    state &= ~(1u << idx);
-    g_output_state = state;
 }
 
 static void enqueue_event(uint8_t type, uint8_t info, uint8_t arg) {
     EventPacket evt{};
     evt.header = make_header(type, info);
     evt.arg = arg;
-    (void)queue_try_add(&g_evt_queue, &evt);
+    (void)xQueueSend(g_evt_queue, &evt, 0);
 }
 
 static void enqueue_ack(uint8_t cmd, uint8_t arg = 0) {
@@ -272,22 +240,46 @@ static void board_indicator_led_set(bool led_on) {
 #endif
 }
 
+static void set_display_open(bool open) {
+#if MAGICTOOL_ENABLE_DISPLAY
+#if MAGICTOOL_ENABLE_LVGL
+    ui_lvgl_set_display_open(open);
+#else
+    if (open) {
+        st7735_set_display_on(true);
+        st7735_set_backlight(true);
+    } else {
+        st7735_set_backlight(false);
+        st7735_set_display_on(true);
+        st7735_fill(0x0000u);
+    }
+#endif
+#else
+    (void)open;
+#endif
+}
+
+static void init_display_blank() {
+#if MAGICTOOL_ENABLE_DISPLAY
+    st7735_set_backlight(false);
+    st7735_init(nullptr);
+    st7735_set_display_on(true);
+    st7735_fill(0x0000u);
+#endif
+}
+
 static void set_indicator_led(uint8_t cmd, bool led_on) {
+    set_display_open(led_on);
+
     if (!g_indicator_led_available) {
         enqueue_error(cmd, ERR_LED_UNAVAILABLE);
         return;
     }
 
     board_indicator_led_set(led_on);
-    g_indicator_led_state = led_on;
-    enqueue_ack(cmd, g_indicator_led_state ? 1 : 0);
+    g_tool_open = led_on;
+    enqueue_ack(cmd, g_tool_open ? 1 : 0);
 }
-
-// ------------------------------------------------------------
-// Worker core (core 1)
-// - executes output commands synchronously
-// - polls inputs and emits async change notifications
-// ------------------------------------------------------------
 
 static void process_command(const CommandPacket &pkt) {
     const uint8_t cmd = get_cmd_code(pkt.header);
@@ -297,7 +289,6 @@ static void process_command(const CommandPacket &pkt) {
         case CMD_NOP:
             enqueue_ack(cmd, 0);
             break;
-
         case CMD_SET:
             if (!valid_output_index(sel)) {
                 enqueue_error(cmd, ERR_BAD_PIN);
@@ -306,7 +297,6 @@ static void process_command(const CommandPacket &pkt) {
             set_output_index(sel, true);
             enqueue_ack(cmd, g_output_state);
             break;
-
         case CMD_CLEAR:
             if (!valid_output_index(sel)) {
                 enqueue_error(cmd, ERR_BAD_PIN);
@@ -315,7 +305,6 @@ static void process_command(const CommandPacket &pkt) {
             set_output_index(sel, false);
             enqueue_ack(cmd, g_output_state);
             break;
-
         case CMD_TOGGLE:
             if (!valid_output_index(sel)) {
                 enqueue_error(cmd, ERR_BAD_PIN);
@@ -324,7 +313,6 @@ static void process_command(const CommandPacket &pkt) {
             toggle_output_index(sel);
             enqueue_ack(cmd, g_output_state);
             break;
-
         case CMD_PULSE:
             if (!valid_output_index(sel)) {
                 enqueue_error(cmd, ERR_BAD_PIN);
@@ -333,20 +321,16 @@ static void process_command(const CommandPacket &pkt) {
             pulse_output_index(sel, pkt.arg);
             enqueue_ack(cmd, g_output_state);
             break;
-
         case CMD_WRITE_MASK:
             apply_output_state_bitmap(pkt.arg);
             enqueue_ack(cmd, g_output_state);
             break;
-
         case CMD_READ_INPUTS:
             enqueue_event(EVT_INPUTS, 0, read_inputs_bitmap());
             break;
-
         case CMD_READ_OUTPUTS:
             enqueue_event(EVT_OUTPUTS, 0, g_output_state & 0x0F);
             break;
-
         case CMD_ENABLE_NOTIFY:
             if (sel == 0x0F) {
                 g_notify_enable = (1u << IN_PIN_COUNT) - 1u;
@@ -358,7 +342,6 @@ static void process_command(const CommandPacket &pkt) {
                 enqueue_error(cmd, ERR_BAD_SELECTOR);
             }
             break;
-
         case CMD_DISABLE_NOTIFY:
             if (sel == 0x0F) {
                 g_notify_enable = 0;
@@ -370,7 +353,6 @@ static void process_command(const CommandPacket &pkt) {
                 enqueue_error(cmd, ERR_BAD_SELECTOR);
             }
             break;
-
         case CMD_GET_VERSION:
             switch (sel) {
                 case 0:
@@ -387,41 +369,39 @@ static void process_command(const CommandPacket &pkt) {
                     break;
             }
             break;
-
         case CMD_PING:
             enqueue_ack(cmd, pkt.arg);
             break;
-
         case CMD_OPEN:
             set_indicator_led(cmd, true);
             break;
-
         case CMD_CLOSE:
+            apply_output_state_bitmap(0);
             set_indicator_led(cmd, false);
             break;
-
         case CMD_GET_HARDWARE_VERSION:
             enqueue_ack(cmd, hardware_version_byte());
             break;
-
         default:
             enqueue_error(cmd, ERR_UNKNOWN_CMD);
             break;
     }
 }
 
-void core1_entry() {
+static void protocol_task(void *params) {
+    (void)params;
+
     uint8_t last_input_state = read_inputs_bitmap();
-    absolute_time_t next_poll = make_timeout_time_us(INPUT_POLL_US);
+    uint64_t next_poll_us = time_us_64() + INPUT_POLL_US;
 
-    while (true) {
+    for (;;) {
         CommandPacket pkt{};
-
-        if (queue_try_remove(&g_cmd_queue, &pkt)) {
+        while (xQueueReceive(g_cmd_queue, &pkt, 0) == pdPASS) {
             process_command(pkt);
         }
 
-        if (absolute_time_diff_us(get_absolute_time(), next_poll) <= 0) {
+        const uint64_t now = time_us_64();
+        if ((int64_t)(now - next_poll_us) >= 0) {
             const uint8_t current = read_inputs_bitmap();
             const uint8_t changed = (current ^ last_input_state) & g_notify_enable;
 
@@ -430,16 +410,13 @@ void core1_entry() {
             }
 
             last_input_state = current;
-            next_poll = make_timeout_time_us(INPUT_POLL_US);
+            next_poll_us = now + INPUT_POLL_US;
         }
 
-        tight_loop_contents();
+        sleep_us(50);
+        taskYIELD();
     }
 }
-
-// ------------------------------------------------------------
-// USB side (core 0)
-// ------------------------------------------------------------
 
 static void usb_send_pending_events() {
     if (!tud_cdc_connected()) {
@@ -448,16 +425,16 @@ static void usb_send_pending_events() {
 
     while (true) {
         EventPacket evt{};
-        if (!queue_try_peek(&g_evt_queue, &evt)) {
+        if (xQueuePeek(g_evt_queue, &evt, 0) != pdPASS) {
             break;
         }
 
-        if (tud_cdc_write_available() < 2) {
+        if (tud_cdc_write_available() < sizeof(evt)) {
             break;
         }
 
         tud_cdc_write(&evt, sizeof(evt));
-        queue_try_remove(&g_evt_queue, &evt);
+        (void)xQueueReceive(g_evt_queue, &evt, 0);
     }
 
     tud_cdc_write_flush();
@@ -482,60 +459,108 @@ static void usb_receive_commands() {
             pkt.arg = byte;
             have_header = false;
 
-            if (!queue_try_add(&g_cmd_queue, &pkt)) {
-                const uint8_t cmd = get_cmd_code(pkt.header);
-                enqueue_error(cmd, ERR_QUEUE_FULL);
+            if (xQueueSend(g_cmd_queue, &pkt, 0) != pdPASS) {
+                enqueue_error(get_cmd_code(pkt.header), ERR_QUEUE_FULL);
             }
         }
     }
 }
 
-// ------------------------------------------------------------
-// Init
-// ------------------------------------------------------------
+static void usb_task(void *params) {
+    (void)params;
+
+    tusb_init();
+
+    for (;;) {
+        tud_task();
+        usb_receive_commands();
+        usb_send_pending_events();
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
 
 static void init_gpio() {
     for (uint i = 0; i < OUT_PIN_COUNT; ++i) {
-        gpio_init(OUTPUT_PINS[i]);
-        gpio_set_dir(OUTPUT_PINS[i], GPIO_OUT);
-        gpio_put(OUTPUT_PINS[i], 0);
+        gpio_init(k_magictool_output_pins[i]);
+        gpio_set_dir(k_magictool_output_pins[i], GPIO_OUT);
+        gpio_put(k_magictool_output_pins[i], 0);
     }
 
     for (uint i = 0; i < IN_PIN_COUNT; ++i) {
-        gpio_init(INPUT_PINS[i]);
-        gpio_set_dir(INPUT_PINS[i], GPIO_IN);
-        gpio_pull_down(INPUT_PINS[i]);
+        gpio_init(k_magictool_input_pins[i]);
+        gpio_set_dir(k_magictool_input_pins[i], GPIO_IN);
+        gpio_pull_down(k_magictool_input_pins[i]);
     }
 
-    g_output_state = 0;
+    publish_output_state(0);
 }
 
 static void init_indicator_led() {
     g_indicator_led_available = board_indicator_led_init();
     if (g_indicator_led_available) {
         board_indicator_led_set(false);
-        g_indicator_led_state = false;
+    }
+    g_tool_open = false;
+}
+
+extern "C" void vApplicationMallocFailedHook(void) {
+    taskDISABLE_INTERRUPTS();
+    for (;;) {
+    }
+}
+
+extern "C" void vApplicationStackOverflowHook(TaskHandle_t task, char *task_name) {
+    (void)task;
+    (void)task_name;
+    taskDISABLE_INTERRUPTS();
+    for (;;) {
     }
 }
 
 int main() {
     board_init();
+#if MAGICTOOL_ENABLE_DISPLAY
+    init_display_blank();
+#endif
     init_indicator_led();
     init_gpio();
 
-    queue_init(&g_cmd_queue, sizeof(CommandPacket), CMD_QUEUE_LEN);
-    queue_init(&g_evt_queue, sizeof(EventPacket), EVT_QUEUE_LEN);
+    g_cmd_queue = xQueueCreate(32, sizeof(CommandPacket));
+    configASSERT(g_cmd_queue != nullptr);
+    g_evt_queue = xQueueCreate(64, sizeof(EventPacket));
+    configASSERT(g_evt_queue != nullptr);
 
-    multicore_launch_core1(core1_entry);
+    BaseType_t ok = xTaskCreateAffinitySet(usb_task,
+                                           "usb",
+                                           1024,
+                                           nullptr,
+                                           4,
+                                           CORE0_AFFINITY,
+                                           nullptr);
+    configASSERT(ok == pdPASS);
 
-    tusb_init();
+    ok = xTaskCreateAffinitySet(protocol_task,
+                                "protocol",
+                                1024,
+                                nullptr,
+                                3,
+                                CORE1_AFFINITY,
+                                nullptr);
+    configASSERT(ok == pdPASS);
 
-    while (true) {
-        tud_task();
-        usb_receive_commands();
-        usb_send_pending_events();
-        tight_loop_contents();
+#if MAGICTOOL_ENABLE_DISPLAY && MAGICTOOL_ENABLE_LVGL
+    ok = xTaskCreateAffinitySet(ui_lvgl_task,
+                                "lvgl",
+                                2048,
+                                nullptr,
+                                2,
+                                CORE0_AFFINITY,
+                                nullptr);
+    configASSERT(ok == pdPASS);
+#endif
+
+    vTaskStartScheduler();
+
+    for (;;) {
     }
-
-    return 0;
 }

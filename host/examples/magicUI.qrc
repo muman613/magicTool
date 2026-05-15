@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file alias="magicUI.png">../../resources/icons/magicUI.png</file>
+    </qresource>
+</RCC>
